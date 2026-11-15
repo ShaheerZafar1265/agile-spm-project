@@ -9,12 +9,13 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createPool } from '../src/data/db.js';
+import { requireTestDatabase } from './guard.js';
 import { issuedToken } from '../test/helpers.js';
 import { users as seedUsers } from '../src/data/store.js';
 
 const SERVER_DIR = fileURLToPath(new URL('..', import.meta.url));
 
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for the database tests.');
+requireTestDatabase();
 
 let pool;
 const servers = [];
