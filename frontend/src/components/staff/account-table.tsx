@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useMemo, useState } from 'react';
 import type { Role, User } from '@/types';
 import { authApi } from '@/lib/api';
@@ -107,10 +109,14 @@ export function AccountTable({
             {initials(u.name)}
           </span>
           <div className="min-w-0">
-            <p className={`truncate text-sm font-medium sm:text-base ${u.active ? 'text-stone-800' : 'text-stone-500'}`}>
+            <Link
+              href={`/staff/account/${u.id}`}
+              className="transition underline hover:text-brand-600"
+              onClick={(e) => e.stopPropagation()}
+            >
               {u.name}
               {isSelf ? <span className="ml-1.5 text-xs font-normal text-stone-500">(you)</span> : null}
-            </p>
+            </Link>
             <p className="truncate text-xs text-stone-500">{u.email}</p>
           </div>
         </div>
