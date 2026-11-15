@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { Role, User } from '@/types';
 import { authApi } from '@/lib/api';
-import { can, canAdministerAccount, canManageAccount } from '@/lib/permissions';
+import { ASSIGNABLE_ROLES, can, canAdministerAccount, canManageAccount } from '@/lib/permissions';
 import { errorMessage } from '@/lib/format';
 import { useAuth } from '@/context/auth-context';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ const article = (word: string) => (/^[aeiou]/i.test(word) ? 'an' : 'a');
 
 /** One line on what a role can reach, shown before a role change is applied. */
 const ROLE_ACCESS: Record<Role, string> = {
+  superadmin: 'The super admin can do everything, including managing admins. The role is bound to one account and never assigned here.',
   admin: 'Admins can do everything, including changing roles, suspending and removing accounts.',
   manager:
     'Managers run the menu, inventory, refunds, shifts, analytics and settings, and manage waiter and chef accounts.',
@@ -127,7 +128,7 @@ export function AccountTable({
                 if (role !== u.role) setRoleChange({ user: u, role });
               }}
             >
-              {ROLE_ORDER.map((r) => (
+              {ROLE_ORDER.filter((r) => ASSIGNABLE_ROLES.includes(r)).map((r) => (
                 <option key={r} value={r}>
                   {ROLE_META[r].label}
                 </option>

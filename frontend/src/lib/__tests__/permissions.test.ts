@@ -109,9 +109,9 @@ describe('workforce sections', () => {
 });
 
 describe('ROLE_RANK', () => {
-  it('ranks admin over manager over chef and waiter, which are equal', () => {
+  it('ranks the super admin over admin over manager over chef and waiter, which are equal', () => {
     // Arrange / Act / Assert
-    expect(ROLE_RANK).toEqual({ admin: 3, manager: 2, chef: 1, waiter: 1 });
+    expect(ROLE_RANK).toEqual({ superadmin: 4, admin: 3, manager: 2, chef: 1, waiter: 1 });
   });
 });
 
@@ -121,15 +121,17 @@ const acct = (role: Role, id = `usr_${role}`) => ({ id, role });
 describe('canManageAccount', () => {
   // Expected result for every actor (row) x target (column) pair of distinct accounts.
   const matrix: Record<Role, Record<Role, boolean>> = {
-    admin: { admin: false, manager: true, chef: true, waiter: true, customer: false },
-    manager: { admin: false, manager: false, chef: true, waiter: true, customer: false },
-    chef: { admin: false, manager: false, chef: false, waiter: false, customer: false },
-    waiter: { admin: false, manager: false, chef: false, waiter: false, customer: false },
-    customer: { admin: false, manager: false, chef: false, waiter: false, customer: false },
+    superadmin: { superadmin: false, admin: true, manager: true, chef: true, waiter: true, customer: false },
+    admin: { superadmin: false, admin: false, manager: true, chef: true, waiter: true, customer: false },
+    manager: { superadmin: false, admin: false, manager: false, chef: true, waiter: true, customer: false },
+    chef: { superadmin: false, admin: false, manager: false, chef: false, waiter: false, customer: false },
+    waiter: { superadmin: false, admin: false, manager: false, chef: false, waiter: false, customer: false },
+    customer: { superadmin: false, admin: false, manager: false, chef: false, waiter: false, customer: false },
   };
+  const roles = Object.keys(matrix) as Role[];
 
-  for (const actorRole of ALL_ROLES) {
-    for (const targetRole of ALL_ROLES) {
+  for (const actorRole of roles) {
+    for (const targetRole of roles) {
       const expected = matrix[actorRole][targetRole];
       it(`${actorRole} ${expected ? 'can' : 'cannot'} manage another ${targetRole}`, () => {
         // Arrange
