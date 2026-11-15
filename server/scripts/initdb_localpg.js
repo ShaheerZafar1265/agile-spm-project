@@ -6,8 +6,9 @@
  *   node scripts/initdb_localpg.js --url=postgres://... # explicit connection string
  *   node scripts/initdb_localpg.js --yes-really         # required for Neon targets
  *
- * The script is idempotent: `001_schema.sql` uses `IF NOT EXISTS` for every
- * object and `002_seed.sql` uses `ON CONFLICT DO NOTHING`, so running it twice
+ * The script is idempotent: the schema files (`SCHEMA_FILES`, the same list the
+ * server applies) use `IF NOT EXISTS` for every object and `002_seed.sql` uses
+ * `ON CONFLICT DO NOTHING`, so running it twice
  * leaves the database in the same state. `--fresh` is the destructive variant —
  * it drops the whole `public` schema before applying the schema again, and it
  * therefore also needs `--yes-really` when the target is Neon.
@@ -23,11 +24,11 @@ import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
 import pg from 'pg';
 import { createPool, isNeonUrl } from '../src/data/db.js';
+import { SCHEMA_FILES } from '../src/data/relational/schema.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER_ROOT = resolve(HERE, '..');
 const SCHEMA_DIR = join(SERVER_ROOT, 'schema');
-const SCHEMA_FILE = join(SCHEMA_DIR, '001_schema.sql');
 const SEED_FILE = join(SCHEMA_DIR, '002_seed.sql');
 
 const log = (...parts) => console.log('[db:init]', ...parts);
@@ -436,10 +437,12 @@ async function main() {
         await client.query('CREATE SCHEMA public');
       }
 
-      if (!existsSync(SCHEMA_FILE)) {
-        throw new Error(`schema file not found: ${SCHEMA_FILE}`);
+      // One transaction per file, in order: 004 adds an enum value that 005 and the seed use.
+      for (const name of SCHEMA_FILES) {
+        const file = join(SCHEMA_DIR, name);
+        if (!existsSync(file)) throw new Error(`schema file not found: ${file}`);
+        await runSqlFile(client, file);
       }
-      await runSqlFile(client, SCHEMA_FILE);
 
       const tables = await listTables(client);
       const before = await countRows(client, tables);
