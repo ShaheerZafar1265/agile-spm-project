@@ -93,7 +93,7 @@ export function StaffOverviewTable({
                           type="button"
                           onClick={() => onSelect(r.user.id)}
                           className="text-xs underline hover:text-brand-600"
-                          aria-label={`View ${r.user.name}'s work hours`}
+                          aria-label={`View work hours for ${r.user.name}`}
                         >
                           View work
                         </button>
