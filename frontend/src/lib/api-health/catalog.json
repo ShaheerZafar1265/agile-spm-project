@@ -572,7 +572,7 @@
       "path": "/api/auth/roles",
       "params": [],
       "documented": true,
-      "summary": "The five stakeholder roles.",
+      "summary": "The five stakeholder roles plus the super admin (bound to one account).",
       "auth": "none",
       "roles": [],
       "rolesSource": null,

@@ -196,7 +196,7 @@ export const ROUTE_DOCS = {
     errors: ['400 "Password needs: …" listing the unmet rules', '403 another admin', '404 user not found'],
   },
   'GET /api/auth/roles': {
-    summary: 'The five stakeholder roles.',
+    summary: 'The five stakeholder roles plus the super admin (bound to one account).',
     response: ok({ roles: ['customer', 'waiter', 'chef', 'manager', 'admin'] }),
   },
   'GET /api/auth/users': {
