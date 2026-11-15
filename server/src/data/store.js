@@ -80,7 +80,6 @@ export const users = seedUsers.map((u) => ({
   mustChangePassword: false,
   tokenVersion: 0,
   passwordHash: u.passwordHash ?? DEMO_PASSWORD_HASH,
-  altPasswordHashes: [u.passwordHash ?? DEMO_PASSWORD_HASH, DEMO_PASSWORD_HASH],
   ...(STAFF_ROLES.includes(u.role) ? { hourlyWage: DEFAULT_WAGES[u.role] } : {}),
   createdAt: iso(addDays(new Date(), -120)),
 }));

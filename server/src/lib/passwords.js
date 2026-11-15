@@ -5,10 +5,6 @@ import { PASSWORD_MAX } from './password-policy.js';
 const DUMMY_HASH = bcrypt.hashSync('unused-login-placeholder', 10);
 
 export function passwordMatches(user, password) {
-  if (typeof password !== 'string' || password.length > PASSWORD_MAX || !user) return false;
-  if (bcrypt.compareSync(password, user.passwordHash ?? DUMMY_HASH)) return true;
-  if (Array.isArray(user.altPasswordHashes)) {
-    return user.altPasswordHashes.some((h) => bcrypt.compareSync(password, h));
-  }
-  return false;
+  return typeof password === 'string' && password.length <= PASSWORD_MAX
+    && bcrypt.compareSync(password, user?.passwordHash ?? DUMMY_HASH);
 }
