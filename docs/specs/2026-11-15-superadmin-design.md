@@ -74,7 +74,9 @@ Add a sixth role, **`superadmin`**, ranked above admin. Exactly one account hold
   - `ROLE_META.superadmin = { label: 'Super admin', plural: 'Super admins', tone: 'red' }`, distinct from admin's `brand`.
   - The superadmin goes first in `ROLE_ORDER` and `STAFF_ROLE_ORDER`.
   - New capabilities entry. Admin's "cannot" list now says the super admin manages admins.
-- `account-table.tsx`: the role picker offers `ASSIGNABLE_ROLES` only. A superadmin row always shows a badge, never a picker.
+- `account-table.tsx`: the role picker offers `ASSIGNABLE_ROLES` only. A super admin row, including the super admin's own, always shows its badge, never a picker.
+- `account-profile-form.tsx` (My account): the super admin's email field is read-only and explains that the email is bound to the role. The server refuses the change anyway.
+- `staff-shell.tsx`: the sidebar role badge takes its label and colour from `ROLE_META` instead of a hard-coded chain.
 - Hard-coded role checks go through `permissions.ts`:
   - `staff-shell` (badge tone)
   - `applications-panel` (`can.approveManagers`)
@@ -85,13 +87,22 @@ Add a sixth role, **`superadmin`**, ranked above admin. Exactly one account hold
 
 `pnpm --dir server superadmin -- [--email=…] [--name=…] [--yes-really]`. The email defaults to `SUPERADMIN_EMAIL`.
 
-1. **Pre-check, outside any lock.** Look up whether the email has an account. If not, prompt twice for a password with echo hidden and check it against the password policy. Waiting for a person while holding the global lock would stall every request on the live site, so the prompt happens first.
+1. **Before any lock:**
+   - Look up the account for the email, and report its current role, name and creation date if it exists.
+   - Ask for a password twice, with the input hidden. Piped input (two lines on stdin) is accepted for automation.
+   - Check the password against the policy.
+   - Waiting for a person while holding the global lock would stall every request on the live site, so the prompt comes first.
+   - **Every bind sets this password, even on an existing account.** Registration has no email verification and the bound email is public. If a bind only promoted an existing account, then anyone who registered that email before the bind, or the seed's public dev password (`Admin@123456`, e.g. after `db:reset`), would become the production super admin's credential. *(Changed after code review.)*
 2. **Bind, under the same protocol as `persist.js`:**
    1. `BEGIN` and `pg_advisory_xact_lock(727274)`.
    2. Load the store if a `state_version` row exists; otherwise start from the seed.
-   3. Run `bindSuperadmin(store, { email, name, password })`: promote the account, or create it, and make sure it is active. Demote any other superadmin to admin.
+   3. Run `bindSuperadmin({ email, name, password })` on the in-memory store (the same module state the routes use):
+      - Promote the account, or create it.
+      - Set the new password, make it active, and bump its `tokenVersion`, which signs out every existing session.
+      - Demote any other super admin to admin and bump their `tokenVersion` too, so moving the binding away from an account ends its sessions.
    4. `saveStore`, bump `state_version`, `COMMIT`. Running instances reload on their next request.
 3. Neon targets need `--yes-really`, the same guard as `db:init`.
+4. The literal `--` that `pnpm run` forwards is ignored, so `pnpm --dir server superadmin -- --yes-really` works. `db:init` gets the same fix, because the README's documented `db:init -- --yes-really` failed the same way.
 
 `bindSuperadmin` is a pure function in `src/lib/superadmin.js`, unit-tested in memory. The DB path is covered by a `test-db` test.
 
@@ -112,7 +123,7 @@ The deployed web app reads `ROLE_META[u.role].tone`. A superadmin row reaching N
 | Superadmin changes own email | `403` (above) |
 | An admin acts on the superadmin | `403 "You can only manage accounts below your own rank."` (existing) |
 | A second superadmin row | Postgres `unique_violation` on `uq_users_one_superadmin` |
-| Bind script creates an account without a password, or with a weak one | Exits non-zero, nothing written |
+| Bind script run without a password, or with a weak or mismatched one | Exits non-zero, nothing written |
 | Bind script on Neon without `--yes-really` | Refuses |
 
 ### Testing (TDD, red first)
@@ -148,6 +159,13 @@ CI has been red on `development` and `main` since commit `99a1237` (the superuse
 2. The store does not survive a save and load, because `altPasswordHashes` (every seeded account also accepted `password`) exists only in memory and is never written to Postgres. As a result the fallback vanished after any reload, and an old `password` kept working after a password change on a warm instance. **Removed, with the user's approval:**
    - `store.js` no longer seeds alternate hashes, and `lib/passwords.js` checks only `passwordHash`.
    - The superuser test now checks that `password` does not open a superuser account.
+
+## Code-review follow-ups (2026-11-15)
+
+- The API catalogue (`server/src/lib/api-catalog.js`) gets the six-role example, the two new `403`s, and the rank-limited workforce text. Then `export:health` is rerun.
+- Every `test-db` file refuses a Neon `DATABASE_URL`, so `test:db` can never drop the production database. `server/.env` points at Neon.
+- The super admin's handler-rule tests live in each module's own test file, per the module-wise test convention.
+- DB_PLAN §7.4 (applying the schema by hand) lists `001`, `003`, `004` and `005` before `002`.
 
 ## Out of scope
 

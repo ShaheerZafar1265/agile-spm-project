@@ -68,3 +68,18 @@ test('db:init applies every schema file before the seed, so the seeded super adm
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(rows, [{ email: 'sabihuddin106@gmail.com', role: 'superadmin' }]);
 });
+
+test('db:init accepts the -- that `pnpm run db:init -- …` forwards', async () => {
+  // Arrange
+  await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+  const serverRoot = fileURLToPath(new URL('../', import.meta.url));
+
+  // Act
+  const run = spawnSync(process.execPath, ['scripts/initdb_localpg.js', '--', `--url=${process.env.DATABASE_URL}`], {
+    cwd: serverRoot, env: process.env, encoding: 'utf8',
+  });
+
+  // Assert
+  assert.equal(run.status, 0, run.stderr);
+});
+

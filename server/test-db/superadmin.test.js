@@ -39,7 +39,10 @@ async function seededDatabase() {
 
 const superadmins = async () => (await pool.query("SELECT email FROM users WHERE role = 'superadmin' ORDER BY email")).rows.map((r) => r.email);
 const version = async () => (await pool.query("SELECT last_value::int AS v FROM sequences WHERE name = 'state_version'")).rows[0].v;
-const runScript = (...args) => spawnSync(process.execPath, ['scripts/superadmin.js', ...args], { cwd: SERVER_DIR, env: process.env, encoding: 'utf8' });
+const PASSWORD = 'Ledger-Kite-42!';
+/** Run the CLI with `input` on stdin (piped, as automation would); a leading '--' is what `pnpm run x -- …` forwards. */
+const runScript = (args, input = '') => spawnSync(process.execPath, ['scripts/superadmin.js', ...args], { cwd: SERVER_DIR, env: process.env, encoding: 'utf8', input });
+const passwordHashOf = async (email) => (await pool.query('SELECT password_hash FROM users WHERE email = $1', [email])).rows[0]?.password_hash;
 
 test('binding loads the tables first, moves the role to the account, demotes the old holder and bumps the version', async () => {
   // Arrange — a change only the database knows about (another instance saved it)
@@ -47,7 +50,7 @@ test('binding loads the tables first, moves the role to the account, demotes the
   await pool.query("UPDATE users SET name = 'Shahan Saved Elsewhere' WHERE email = 'shahanarain33@gmail.com'");
 
   // Act
-  const result = await bindInDatabase(pool, { email: 'shahanarain33@gmail.com' });
+  const result = await bindInDatabase(pool, { email: 'shahanarain33@gmail.com', password: PASSWORD });
 
   // Assert
   assert.deepEqual(await superadmins(), ['shahanarain33@gmail.com']);
@@ -87,7 +90,7 @@ test('on a database the server has not used yet, binding starts from the seed at
   restore(seed);
 
   // Act
-  const result = await bindInDatabase(pool, { email: 'sabihuddin106@gmail.com' });
+  const result = await bindInDatabase(pool, { email: 'sabihuddin106@gmail.com', password: PASSWORD });
 
   // Assert
   assert.equal(result.version, 1);
@@ -109,22 +112,39 @@ test('a refused binding leaves the database as it was', async () => {
   assert.deepEqual(await superadmins(), ['sabihuddin106@gmail.com']);
 });
 
-test('the script binds an existing account on the database it is given', async () => {
+test('the script binds an existing account with the password it is given, as pnpm runs it', async () => {
   // Arrange
   await seededDatabase();
 
   // Act
-  const run = runScript(`--url=${process.env.DATABASE_URL}`, '--email=shahanarain33@gmail.com');
+  const run = runScript(['--', `--url=${process.env.DATABASE_URL}`, '--email=shahanarain33@gmail.com'], `${PASSWORD}\n${PASSWORD}\n`);
 
   // Assert
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /shahanarain33@gmail\.com is now the super admin/);
+  assert.match(run.stdout, /admin account "Shahan Arain"/, 'the operator sees which account is being promoted');
   assert.deepEqual(await superadmins(), ['shahanarain33@gmail.com']);
+  assert.ok(bcrypt.compareSync(PASSWORD, await passwordHashOf('shahanarain33@gmail.com')), 'the typed password is set');
+  assert.doesNotMatch(run.stdout, /Ledger-Kite/, 'the password is never printed');
+});
+
+test('the script changes nothing when the two passwords differ', async () => {
+  // Arrange
+  await seededDatabase();
+
+  // Act
+  const run = runScript([`--url=${process.env.DATABASE_URL}`, '--email=shahanarain33@gmail.com'], `${PASSWORD}\nLedger-Kite-43!\n`);
+
+  // Assert
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /do not match/);
+  assert.equal(await version(), 1);
+  assert.deepEqual(await superadmins(), ['sabihuddin106@gmail.com']);
 });
 
 test('the script refuses a Neon database without --yes-really, before connecting', () => {
   // Act
-  const run = runScript('--url=postgresql://user:secret@ep-example-123456.us-east-2.aws.neon.tech/neondb?sslmode=require');
+  const run = runScript(['--url=postgresql://user:secret@ep-example-123456.us-east-2.aws.neon.tech/neondb?sslmode=require']);
 
   // Assert
   assert.equal(run.status, 1);
