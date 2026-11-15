@@ -1,90 +1,69 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { StaffLayout } from '@/components/layout/staff-layout';
 import { MyAccount } from '@/components/staff/my-account';
+import { ROLE_META, initials } from '@/components/staff/role-meta';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/auth-context';
-import { useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api';
+import { can, holdsRole } from '@/lib/permissions';
 import { errorMessage } from '@/lib/format';
-import { useToast } from '@/components/ui/toast';
-import { NotFound } from 'next';
 import type { User } from '@/types';
 
-export default async function AccountPage() {
+/** One account's details: your own opens My account; managers and admins can view anyone. */
+export default function AccountDetailPage() {
+  const { userId } = useParams<{ userId: string }>();
   const { user } = useAuth();
-  const router = useRouter();
-  const search = useSearchParams();
-  const targetId = search.get('userId') ?? user?.id;
+  const [target, setTarget] = useState<User | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const isSelf = userId === user?.id;
+  const mayView = holdsRole(user?.role, ['manager', 'admin']);
 
-  if (!targetId) return <NotFound />;
-
-  // admins / managers can view any staff / customer; others only themselves
-  const canView = user?.role === 'admin' || user?.role === 'manager'
-    ? true
-    : targetId === user?.id;
-
-  if (!canView) {
-    router.replace('/staff');
-    return null;
-  }
-
-  // fetch the user record
-  const { users: all } = await authApi.users();
-  const target = all.find((u) => u.id === targetId) ?? user;
-
-  if (!target) return <NotFound />;
-
-  const roleMeta = {
-    admin: { label: 'Admin', tone: 'brand' },
-    manager: { label: 'Manager', tone: 'blue' },
-    chef: { label: 'Chef', tone: 'amber' },
-    waiter: { label: 'Waiter', tone: 'emerald' },
-    customer: { label: 'Customer', tone: 'stone' },
-  };
+  useEffect(() => {
+    if (!user || isSelf || !mayView) return;
+    authApi
+      .users()
+      .then(({ users }) => {
+        const found = users.find((u) => u.id === userId);
+        if (found) setTarget(found);
+        else setError('Account not found.');
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, [user, userId, isSelf, mayView]);
 
   return (
     <StaffLayout section="account">
-      {targetId === user?.id ? (
+      {isSelf ? (
         <MyAccount />
+      ) : !mayView ? (
+        <p className="text-sm text-stone-600">You can only view your own account.</p>
+      ) : error ? (
+        <p className="text-sm text-red-700">{error}</p>
+      ) : !target ? (
+        <p className="text-sm text-stone-500">Loading…</p>
       ) : (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-stone-900">{target.name}</h2>
-
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100 text-sm font-bold text-stone-600 sm:h-12 sm:w-12 sm:text-base"
-              aria-hidden="true"
-            >
-              {target.name?.split(' ').filter(Boolean).map((p) => p[0])[0]?.toUpperCase() ?? ''}
+        <div className="card space-y-4 p-4 sm:p-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-base font-bold text-stone-600" aria-hidden="true">
+              {initials(target.name)}
             </span>
-            <div>
-              <p className="font-medium text-stone-800">{target.email}</p>
-              <p className="text-xs text-stone-500">
-                Role: {roleMeta[target.role]?.label ?? target.role}
-              </p>
-              <p className="text-xs text-stone-500">
-                Active: {target.active ? 'Yes' : 'Suspended'}  ·  Member since{
-                  target.createdAt
-                    ? new Date(target.createdAt).toLocaleDateString(undefined, {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })
-                    : '—'
-                }
-              </p>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-stone-900">{target.name}</h1>
+              <p className="truncate text-sm text-stone-600">{target.email}</p>
             </div>
           </div>
-
-          {user?.role === 'admin' && (
-            <a
-              href="/staff/users"
-              className="mt-4 inline-block btn-secondary"
-              rel="noopener noreferrer"
-            >
+          <div className="flex flex-wrap gap-2">
+            <Badge tone={ROLE_META[target.role].tone}>{ROLE_META[target.role].label}</Badge>
+            <Badge tone={target.active ? 'emerald' : 'red'}>{target.active ? 'Active' : 'Suspended'}</Badge>
+          </div>
+          {can.assignRoles(user?.role) ? (
+            <Link href="/staff/users" className="btn-secondary inline-block">
               Manage this account in staff management
-            </a>
-          )}
+            </Link>
+          ) : null}
         </div>
       )}
     </StaffLayout>

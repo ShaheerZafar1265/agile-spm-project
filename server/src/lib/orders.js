@@ -16,6 +16,7 @@ import {
 } from '../data/store.js';
 import { notify } from './notify.js';
 import { iso } from './time.js';
+import { hasRole } from './hierarchy.js';
 
 export const ACTIVE_STATUSES = ['placed', 'confirmed', 'preparing', 'ready', 'served'];
 export const KITCHEN_STATUSES = ['confirmed', 'preparing', 'ready'];
@@ -86,7 +87,7 @@ export function confirmOrder(order, actor) {
   order.status = 'confirmed';
   order.confirmedAt = now;
   order.kitchenRank = Date.now();
-  if (!order.waiterId && actor && ['waiter', 'manager', 'admin'].includes(actor.role)) order.waiterId = actor.id;
+  if (!order.waiterId && hasRole(actor, 'waiter', 'manager', 'admin')) order.waiterId = actor.id;
   order.items.forEach((i) => {
     if (i.status === 'pending') i.status = 'queued';
   });

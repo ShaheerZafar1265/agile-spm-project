@@ -97,6 +97,19 @@ describe('AuthProvider', () => {
     expect(localStorage.length).toBe(0);
   });
 
+  it('hasRole lets the super admin pass wherever an admin does, and only there', async () => {
+    // Arrange
+    vi.mocked(authApi.me).mockResolvedValue({ user: { ...customer, role: 'superadmin' } });
+    const { result } = renderAuth();
+    await waitFor(() => expect(result.current.user?.role).toBe('superadmin'));
+
+    // Act / Assert
+    expect(result.current.hasRole('admin')).toBe(true);
+    expect(result.current.hasRole('manager', 'admin')).toBe(true);
+    expect(result.current.hasRole('superadmin')).toBe(true);
+    expect(result.current.hasRole('waiter', 'chef')).toBe(false);
+  });
+
   it('clears the signed-in user after an auth:expired event', async () => {
     // Arrange
     vi.mocked(authApi.me).mockResolvedValue({ user: manager });

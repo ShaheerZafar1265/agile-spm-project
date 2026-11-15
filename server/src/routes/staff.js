@@ -7,6 +7,7 @@ import { MINUTE, addDays, combine, isValidDate, isValidTime, localDate, iso } fr
 import { toCents, fromCents } from '../lib/order-math.js';
 import { generateTempPassword } from '../lib/password-policy.js';
 import { personName, email as readEmail, phone as readPhone, text, oneOf, id } from '../lib/validate.js';
+import { hasRole } from '../lib/hierarchy.js';
 
 const router = Router();
 const managerRoles = requireRole('manager', 'admin');
@@ -90,7 +91,7 @@ router.post('/applications/:id/approve', managerRoles, (req, res) => {
   if (application.status !== 'pending') return res.status(409).json({ error: `Application already ${application.status}.` });
 
   const role = oneOf(req.body?.role, 'Role', ['waiter', 'chef', 'manager', 'admin', 'customer'], { message: 'Invalid role.' }) || application.desiredRole;
-  const allowed = req.user.role === 'admin' ? ['waiter', 'chef', 'manager'] : ['waiter', 'chef'];
+  const allowed = hasRole(req.user, 'admin') ? ['waiter', 'chef', 'manager'] : ['waiter', 'chef'];
   if (!allowed.includes(role)) return res.status(403).json({ error: `You cannot approve staff as ${role}.` });
   if (findUserByEmail(application.email)) return res.status(409).json({ error: 'An account with that email already exists.' });
 

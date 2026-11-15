@@ -228,3 +228,14 @@ test('a rejected menu item edit changes nothing, and id / recipe cannot be overw
   assert.equal(sneaky.body.item.id, fries.id);
   assert.equal(sneaky.body.item.createdAt, fries.createdAt);
 });
+
+test('the super admin sees every recipe, like an admin', async () => {
+  // Arrange
+  const superadmin = await api.login('sabihuddin106@gmail.com', 'Admin@123456');
+
+  // Act
+  const { items } = (await api.call('GET', '/menu/items', { token: superadmin })).body;
+
+  // Assert
+  assert.ok(items.length > 0 && items.every((i) => Array.isArray(i.recipe)), 'every item carries its recipe');
+});

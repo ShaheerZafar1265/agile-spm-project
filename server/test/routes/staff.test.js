@@ -275,3 +275,20 @@ test('an approved hire gets a temporary password that satisfies the password pol
   assert.deepEqual(checkPassword(approved.body.tempPassword), []);
   assert.equal((await api.call('POST', '/auth/login', { body: { email: 'policy.hire@example.com', password: approved.body.tempPassword } })).status, 200);
 });
+
+test('the super admin hires a manager, like an admin', async () => {
+  // Arrange
+  const superadmin = await api.login('sabihuddin106@gmail.com', 'Admin@123456');
+  const manager = await api.login('manager');
+  const applied = await api.call('POST', '/staff/applications', { body: { name: 'Priya Planner', email: 'priya.planner@example.com', desiredRole: 'chef' } });
+  const id = applied.body.application.id;
+
+  // Act
+  const asManager = await api.call('POST', `/staff/applications/${id}/approve`, { token: manager, body: { role: 'manager' } });
+  const approved = await api.call('POST', `/staff/applications/${id}/approve`, { token: superadmin, body: { role: 'manager' } });
+
+  // Assert
+  assert.equal(asManager.status, 403);
+  assert.equal(approved.status, 200);
+  assert.equal(approved.body.user.role, 'manager');
+});

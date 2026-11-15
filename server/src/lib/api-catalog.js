@@ -167,7 +167,7 @@ export const ROUTE_DOCS = {
     summary: 'Staff edit their own name, email and phone. Changing the email (the login) needs the current password.',
     body: { name: opt('string', '1–80 characters'), email: opt('string'), phone: opt('string', 'digits, spaces, + ( ) - .; 7–20 digits; max 30'), currentPassword: opt('string', 'Required when the email changes') },
     response: ok({ user: USER }),
-    errors: ['400 blank name / invalid email or phone / wrong or missing current password', '409 email already in use'],
+    errors: ['400 blank name / invalid email or phone / wrong or missing current password', '403 the super admin\'s email is bound to the role', '409 email already in use'],
   },
   'POST /api/auth/me/password': {
     summary: 'Confirm your current password and set a new one. The browser receives a new session cookie and other sessions are revoked.',
@@ -177,42 +177,42 @@ export const ROUTE_DOCS = {
   },
   'PATCH /api/auth/users/:id/profile': {
     summary: 'Edit the name, email or phone of a staff account below your rank (managers: waiters and chefs; admins: also managers).',
-    access: 'Handler checks rank: admin > manager > chef = waiter, strictly lower only, never yourself.',
+    access: 'Handler checks rank: superadmin > admin > manager > chef = waiter, strictly lower only, never yourself.',
     body: { name: opt('string'), email: opt('string'), phone: opt('string') },
     response: ok({ user: USER }),
     errors: ['400 invalid field', '403 account is not below your rank', '404 user not found', '409 email already in use'],
   },
   'POST /api/auth/users/:id/reset-password': {
     summary: 'Issue a one-time temporary password for a staff account below your rank. They must set their own on next sign-in, and their sessions are signed out.',
-    access: 'Handler checks rank: admin > manager > chef = waiter, strictly lower only, never yourself.',
+    access: 'Handler checks rank: superadmin > admin > manager > chef = waiter, strictly lower only, never yourself.',
     response: ok({ user: { ...USER, mustChangePassword: true }, tempPassword: '<generated, 12 characters, meets the password policy>' }),
     errors: ['403 account is not below your rank', '404 user not found'],
   },
   'POST /api/auth/users/:id/password': {
     summary: 'An admin sets a new password for a staff account below them, without the old one. Their sessions are signed out.',
-    access: 'Admin only, and only for accounts below admin rank (not other admins).',
+    access: 'An admin, for accounts below admin rank; the super admin, also for admins. Never yourself.',
     body: { newPassword: req('string', 'Meets the password policy') },
     response: ok({ user: USER }),
-    errors: ['400 "Password needs: …" listing the unmet rules', '403 another admin', '404 user not found'],
+    errors: ['400 "Password needs: …" listing the unmet rules', '403 account is not below your rank', '404 user not found'],
   },
   'GET /api/auth/roles': {
-    summary: 'The five stakeholder roles.',
-    response: ok({ roles: ['customer', 'waiter', 'chef', 'manager', 'admin'] }),
+    summary: 'The five stakeholder roles plus the super admin (bound to one account).',
+    response: ok({ roles: ['customer', 'waiter', 'chef', 'manager', 'admin', 'superadmin'] }),
   },
   'GET /api/auth/users': {
     summary: 'Every user account, without password hashes.',
     response: ok({ users: [USER] }),
   },
   'PATCH /api/auth/users/:id': {
-    summary: 'Change a user\'s role or suspend/reactivate them. Admins cannot change their own role or suspend themselves.',
-    body: { role: opt('string', 'customer|waiter|chef|manager|admin'), active: opt('boolean') },
+    summary: 'Change a user\'s role or suspend/reactivate them. Nobody changes their own role or suspends themselves; only the super admin manages admins.',
+    body: { role: opt('string', 'customer|waiter|chef|manager|admin (the super admin role is bound by scripts/superadmin.js, never assigned)'), active: opt('boolean') },
     response: ok({ user: USER }),
-    errors: ['400 invalid role / self-change', '403 another admin (admins manage accounts below them)', '404 user not found'],
+    errors: ['400 invalid role / self-change', '403 the super admin role is bound to one account / account is not below your rank', '404 user not found'],
   },
   'DELETE /api/auth/users/:id': {
     summary: 'Remove an account; its tokens stop working immediately. Linked customer records are kept.',
     response: DELETED('usr_12'),
-    errors: ['400 cannot remove yourself', '403 another admin', '404 user not found'],
+    errors: ['400 cannot remove yourself', '403 account is not below your rank', '404 user not found'],
   },
 
   /* ---- customers */
@@ -628,7 +628,7 @@ export const ROUTE_DOCS = {
   },
   'GET /api/attendance/presence': {
     summary: 'Who is working, on a break or off right now, with today\'s shift.',
-    access: 'Waiters see waiters, chefs see chefs, managers see managers, waiters and chefs, the admin sees all staff.',
+    access: 'Waiters see waiters, chefs see chefs, managers see managers, waiters and chefs, admins see all staff up to admin, the super admin everyone.',
     response: ok({ people: [{ userId: 'usr_12', name: 'Jamie Rivera', role: 'waiter', state: 'working', since: '2026-10-09T16:58:00.000Z', todayShift: { start: '17:00', end: '23:00' } }] }),
   },
 
@@ -641,14 +641,14 @@ export const ROUTE_DOCS = {
   },
   'GET /api/workforce/users/:id': {
     summary: 'One staff member\'s attendance analytics, with pay when the caller may see it.',
-    access: 'Yourself or the admin: everything including pay. Managers: waiters and chefs only, with pay null. Others get 403.',
+    access: 'Yourself, an admin (staff up to admin) or the super admin (everyone): everything including pay. Managers: waiters and chefs only, with pay null. Others get 403.',
     query: RANGE,
     response: ANALYTICS(null),
     errors: ['403 not allowed to see this person', '404 staff member not found', '400 invalid range'],
   },
   'GET /api/workforce/overview': {
     summary: 'Month overview: one row per visible staff member (state, attendance summary, pay), totals, and team series (day, week, hour) for the charts.',
-    access: 'Admin: all staff with pay and payroll. Managers: waiters and chefs, pay and payroll null.',
+    access: 'Admins: all staff up to admin, with pay and payroll; the super admin: everyone. Managers: waiters and chefs, pay and payroll null.',
     query: { month: opt('YYYY-MM', 'Default: this month') },
     response: ok({ month: '2026-10', rows: [{ user: { id: 'usr_12', name: 'Jamie Rivera', role: 'waiter', active: true }, state: 'working', summary: SUMMARY, pay: PAY }], totals: { paidMinutes: 1840, lateCount: 1, payroll: 452.54 }, series: { day: [POINT], week: [{ ...POINT, key: '2026-W41', label: 'w/c 5 Oct' }], hour: [{ ...POINT, key: '17', label: '17:00' }] } }),
     errors: ['400 month not YYYY-MM'],
@@ -657,18 +657,18 @@ export const ROUTE_DOCS = {
     summary: 'Set a staff member\'s hourly wage.',
     body: { hourlyWage: req('number', 'Above 0, at most 500') },
     response: ok({ hourlyWage: 13.5 }),
-    errors: ['400 invalid wage', '404 staff member not found'],
+    errors: ['400 invalid wage', '403 someone above your rank', '404 staff member not found'],
   },
   'POST /api/workforce/users/:id/adjustments': {
     summary: 'Add a bonus (or, with a negative amount, a deduction) to a staff member\'s pay.',
     body: { amount: req('number', 'Non-zero, at most 10000 either way; negative for a deduction'), reason: req('string', 'Up to 200 characters'), date: opt('YYYY-MM-DD', 'Default: today') },
     response: ok({ adjustment: ADJUSTMENT }, 201),
-    errors: ['400 invalid amount / missing reason / invalid date', '404 staff member not found'],
+    errors: ['400 invalid amount / missing reason / invalid date', '403 someone above your rank', '404 staff member not found'],
   },
   'DELETE /api/workforce/users/:id/adjustments/:adjId': {
     summary: 'Remove a bonus or deduction.',
     response: DELETED('adj_3'),
-    errors: ['404 staff member or adjustment not found'],
+    errors: ['403 someone above your rank', '404 staff member or adjustment not found'],
   },
 
   /* ---- analytics */

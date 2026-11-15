@@ -30,11 +30,12 @@ If a phase grows too big, it is split, never stretched. Update this file wheneve
 | 6c | Placeholders on every input | 16 | [x] |
 | 7a | Hardening and browser checks | 16 | [~] |
 | 7b | Branch and worktree clean-up (needs team OK) | 16 | [ ] |
-| 8 | Open product questions | 16 | [ ] |
+| 8 | Open product questions | 16 | [x] |
 | 9 | Phone numbers: digits only, one +92 format | 16 | [x] |
 | 10a | Harmic-style responsive sizes, site-wide | 16 | [x] |
 | 10b | Responsive sweep: storefront, admin ops, admin people | 16 | [x] |
 | 11 | Security Hardening, Superusers & User Management Separation | 16 | [x] |
+| 12 | Super admin bound to one email, CI repair | 17 | [~] |
 
 ---
 
@@ -148,9 +149,9 @@ If a phase grows too big, it is split, never stretched. Update this file wheneve
 
 - [ ] Remove merged branches and old worktrees (after the team agrees)
 
-## Phase 8: Open product questions [ ]
+## Phase 8: Open product questions [x]
 
-- [ ] Should a single super-admin manage the other admins?
+- [x] Should a single super-admin manage the other admins? Yes: one super admin, bound to `sabihuddin106@gmail.com` (Phase 12).
 
 ---
 
@@ -210,3 +211,31 @@ Each branch was merged one at a time, gated, and released to `main` before the n
 - A phase is done only when all six CI checks pass. A test that times out under load is re-run once on its own before it counts as a real failure.
 - Tests stay module-wise with `// Arrange // Act // Assert` comments (see `TestsPLAN.md`).
 - Every delivered feature is also added to the sprint docs.
+
+## Phase 12: Super admin bound to one email, CI repair [~]
+
+**Goal:** answer Phase 8 with one super admin above every admin, bound to `sabihuddin106@gmail.com`, and get CI green again. Spec `docs/specs/2026-11-15-superadmin-design.md`, plan `docs/plans/2026-11-15-superadmin.md`.
+
+- [x] `superadmin` role (rank 4):
+  - it holds every admin permission through `hasRole` and is the only role that manages admins
+  - nobody manages it (`server/src/lib/hierarchy.js`, `frontend/src/lib/permissions.ts`)
+- [x] Bound to one account:
+  - the API never assigns the role, and the super admin cannot change its email (`server/src/routes/auth.js`)
+  - Postgres allows one (`uq_users_one_superadmin`, `server/schema/004_superadmin_role.sql`, `005_one_superadmin.sql`)
+- [x] Workforce follows the rank: admins see and change attendance and pay up to admin, the super admin everyone's
+- [x] `pnpm --dir server superadmin` binds it on a database under the persistence lock. Neon needs `--yes-really`.
+  - Every bind takes a freshly typed password (twice, input hidden) and signs out the account's sessions.
+  - The script and `db:init` accept the `--` that `pnpm run` forwards.
+- [x] Code-review fixes (independent review):
+  - closed the pre-registered-email takeover
+  - the super admin's own row shows its badge
+  - the bound email is read-only on My account
+  - the API catalogue is updated
+  - DB tests refuse Neon
+  - the super admin's handler tests live in their module files
+- [x] Sprint 17 on the Scrum board: US17.1, US17.2
+- [x] CI repair (user approved). CI had been red on `development` and `main` since 99a1237:
+  - the seed test now counts the seed's own users
+  - the in-memory alternate password (`altPasswordHashes`) is removed, because it never reached Postgres
+- [ ] PR into `development`, release to `main`, deploy the API then the web app, bind on Neon
+

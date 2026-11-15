@@ -14,7 +14,7 @@ import {
 import { authenticate, authenticateForAccountRecovery, revokeSession, requireRole, requireAdmin } from '../middleware/auth.js';
 import { clearSession, protectSessionIssuance, setSession } from '../lib/session-cookie.js';
 import { passwordMatches } from '../lib/passwords.js';
-import { canManage, BELOW_RANK_ERROR } from '../lib/hierarchy.js';
+import { ASSIGNABLE_ROLES, canManage, BELOW_RANK_ERROR } from '../lib/hierarchy.js';
 import { passwordError, generateTempPassword, PASSWORD_MAX } from '../lib/password-policy.js';
 import { personName, email as readEmail, phone as readPhone, bool, oneOf, EMAIL_MAX } from '../lib/validate.js';
 
@@ -116,6 +116,10 @@ router.patch('/me', authenticate, requireRole('waiter', 'chef', 'manager', 'admi
   const body = req.body || {};
   const { changes, status, error } = profileChanges(req.user, body);
   if (error) return res.status(status).json({ error });
+  // The super admin role is bound to this email (store.js SUPERADMIN_EMAIL).
+  if (changes.email && req.user.role === 'superadmin') {
+    return res.status(403).json({ error: "The super admin's email is bound to the role and cannot be changed." });
+  }
   if (changes.email && !passwordMatches(req.user, body.currentPassword)) {
     return res.status(400).json({ error: 'Enter your current password to change your email.' });
   }
@@ -206,7 +210,7 @@ router.post('/users/:id/password', authenticate, requireRole('admin'), (req, res
   return res.json({ user: sanitizeUser(target) });
 });
 
-/** GET /api/auth/roles — list the five stakeholder roles. */
+/** GET /api/auth/roles — list the five stakeholder roles and the super admin. */
 router.get('/roles', (req, res) => {
   res.json({ roles: ROLES });
 });
@@ -222,7 +226,11 @@ router.patch('/users/:id', requireAdmin, (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found.' });
 
   const body = req.body || {};
-  const role = oneOf(body.role, 'Role', ROLES, { message: 'Invalid role.' });
+  // The super admin role is bound to one account by scripts/superadmin.js, never assigned here.
+  if (body.role === 'superadmin') {
+    return res.status(403).json({ error: 'The super admin role is bound to one account and cannot be assigned.' });
+  }
+  const role = oneOf(body.role, 'Role', ASSIGNABLE_ROLES, { message: 'Invalid role.' });
   const active = bool(body.active, 'active');
   const isSelf = user.id === req.user.id;
   // Admins manage the staff accounts below them (not other admins) and customer accounts.

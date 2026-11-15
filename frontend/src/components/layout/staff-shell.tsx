@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { canAccess, type Section } from '@/lib/permissions';
+import { ROLE_META } from '@/components/staff/role-meta';
 import { FlameMark } from '@/components/storefront/flame-mark';
 import { XMarkIcon } from '@/components/ui/icons';
 
@@ -185,7 +186,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{user.name}</p>
-            <Badge tone={user.role === 'admin' ? 'brand' : user.role === 'manager' ? 'blue' : 'stone'}>{user.role}</Badge>
+            <Badge tone={ROLE_META[user.role].tone}>{ROLE_META[user.role].label}</Badge>
           </div>
           <button
             disabled={signingOut}

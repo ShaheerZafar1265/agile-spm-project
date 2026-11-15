@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { WorkforceOverview, WorkforceOverviewRow } from '@/types';
 import { money } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
@@ -80,23 +79,11 @@ export function StaffOverviewTable({
                 {rows.map((r) => (
                   <tr key={r.user.id} className="hover:bg-stone-50">
                     <td>
-                      <Link
-                        href={`/staff/account/${r.user.id}`}
-                        className="text-left font-medium text-stone-900 hover:text-brand-700 hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <button type="button" className="text-left font-medium text-stone-900 hover:text-brand-700 hover:underline" onClick={() => onSelect(r.user.id)}>
                         {r.user.name}
-                      </Link>
-                      <div className="mt-0.5 flex items-center gap-2">
+                      </button>
+                      <div>
                         <Badge tone={ROLE_META[r.user.role].tone}>{ROLE_META[r.user.role].label}</Badge>
-                        <button
-                          type="button"
-                          onClick={() => onSelect(r.user.id)}
-                          className="text-xs underline hover:text-brand-600"
-                          aria-label={`View ${r.user.name}'s work hours`}
-                        >
-                          View work
-                        </button>
                       </div>
                     </td>
                     <td>

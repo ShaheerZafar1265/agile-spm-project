@@ -20,9 +20,9 @@ function Person({ p, isSelf, accountHref }: { p: PresenceEntry; isSelf: boolean;
       <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${meta.dot}`} aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 sm:gap-x-2">
-          {accountHref && p.userId !== selfId ? (
+          {accountHref && !isSelf && accountHref(p) ? (
             <a
-              href={accountHref(p)}
+              href={accountHref(p) ?? undefined}
               className="underline hover:text-brand-600 text-sm"
               target="_blank"
               rel="noopener noreferrer"
@@ -57,6 +57,7 @@ export function PresenceList({
   title = 'Colleagues now',
   subtitle,
   variant = 'list',
+  accountHref,
 }: {
   people: PresenceEntry[];
   selfId?: string;
@@ -66,7 +67,7 @@ export function PresenceList({
   accountHref?: (p: PresenceEntry) => string | null;
 }) {
   const groups = ORDER.map((state) => ({ state, list: people.filter((p) => p.state === state).sort((a, b) => a.name.localeCompare(b.name)) }));
-  const counts = groups.map((g) => `${g.list.length} ${STATE_META[g.state].label.toLowerCase()}`).join('-');
+  const counts = groups.map((g) => `${g.list.length} ${STATE_META[g.state].label.toLowerCase()}`).join(' · ');
 
   return (
     <section className="card p-3.5 sm:p-5" aria-labelledby={`presence-${variant}-heading`}>
@@ -89,9 +90,8 @@ export function PresenceList({
               {g.list.length ? (
                 <ul className="divide-y divide-stone-100" aria-label={STATE_META[g.state].label}>
                   {g.list.map((p) => (
-                    // eslint-disable-next-line
                     <Person key={p.userId} p={p} isSelf={p.userId === selfId} accountHref={accountHref} />
-                  )}
+                  ))}
                 </ul>
               ) : (
                 <p className="py-3 text-sm text-stone-500">Nobody</p>
