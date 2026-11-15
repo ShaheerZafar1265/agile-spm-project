@@ -4,8 +4,7 @@ import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import { users, findUserByEmail } from '../../src/data/store.js';
 import { snapshot, restore } from '../../src/data/snapshot.js';
-
-const { bindSuperadmin } = await import('../../src/lib/superadmin.js').catch(() => ({}));
+import { bindSuperadmin } from '../../src/lib/superadmin.js';
 
 const seed = snapshot();
 beforeEach(() => restore(seed));
