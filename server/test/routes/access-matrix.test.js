@@ -9,12 +9,12 @@
  * a paid order) are covered in that module's own test file.
  *
  * The super admin holds every admin permission, so its expected access is
- * derived from admin's, never listed by hand. The tests at the bottom check the
- * same inheritance for the admin rules handlers check themselves.
+ * derived from admin's, never listed by hand. Each module's own test file checks
+ * the same inheritance for the admin rules its handlers check themselves.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { menuItem, startServer } from '../helpers.js';
+import { startServer } from '../helpers.js';
 
 const ROLES = ['customer', 'waiter', 'chef', 'manager', 'admin', 'superadmin'];
 /** The seeded account bound to the super admin role (store.js SUPERADMIN_EMAIL). */
@@ -221,93 +221,4 @@ test('the matrix covers every guarded route in server/src/routes', async () => {
 
   // Assert
   assert.deepEqual(missing, [], 'add these role-guarded routes to MATRIX');
-});
-
-/* -------- Admin rules a handler checks itself also admit the super admin -------- */
-
-test('the super admin changes the floor layout and edits ingredient details, like an admin', async () => {
-  // Arrange
-  const [table] = (await api.call('GET', '/tables', { token: tokens.admin })).body.tables;
-  const [ingredient] = (await api.call('GET', '/inventory', { token: tokens.admin })).body.inventory;
-
-  // Act
-  const layout = await api.call('PATCH', `/tables/${table.id}`, { token: tokens.superadmin, body: { seats: table.seats } });
-  const layoutAsWaiter = await api.call('PATCH', `/tables/${table.id}`, { token: tokens.waiter, body: { seats: table.seats } });
-  const details = await api.call('PATCH', `/inventory/${ingredient.id}`, { token: tokens.superadmin, body: { reorderLevel: ingredient.reorderLevel } });
-  const detailsAsChef = await api.call('PATCH', `/inventory/${ingredient.id}`, { token: tokens.chef, body: { reorderLevel: ingredient.reorderLevel } });
-
-  // Assert
-  assert.equal(layout.status, 200);
-  assert.equal(layoutAsWaiter.status, 403);
-  assert.equal(details.status, 200);
-  assert.equal(detailsAsChef.status, 403);
-});
-
-test('the super admin sees recipes and the full settings, like an admin', async () => {
-  // Act
-  const items = (await api.call('GET', '/menu/items', { token: tokens.superadmin })).body.items;
-  const settings = (await api.call('GET', '/settings', { token: tokens.superadmin })).body.settings;
-  const waiterSettings = (await api.call('GET', '/settings', { token: tokens.waiter })).body.settings;
-
-  // Assert
-  assert.ok(items.length > 0 && items.every((i) => Array.isArray(i.recipe)), 'every item carries its recipe');
-  assert.ok('lateGraceMinutes' in settings, 'staff-only settings are included');
-  assert.ok(!('lateGraceMinutes' in waiterSettings));
-});
-
-test('the super admin is told about new applications and can hire a manager, like an admin', async () => {
-  // Arrange
-  const applied = await api.call('POST', '/staff/applications', { body: { name: 'Priya Planner', email: 'priya.planner@example.com', desiredRole: 'chef' } });
-  const id = applied.body.application.id;
-
-  // Act
-  const feed = (await api.call('GET', '/notifications', { token: tokens.superadmin })).body.notifications;
-  const asManager = await api.call('POST', `/staff/applications/${id}/approve`, { token: tokens.manager, body: { role: 'manager' } });
-  const approved = await api.call('POST', `/staff/applications/${id}/approve`, { token: tokens.superadmin, body: { role: 'manager' } });
-
-  // Assert
-  assert.ok(feed.some((n) => n.type === 'application' && n.message.includes('Priya Planner')), 'admin broadcasts reach the super admin');
-  assert.equal(asManager.status, 403);
-  assert.equal(approved.status, 200);
-  assert.equal(approved.body.user.role, 'manager');
-});
-
-test('the super admin takes orders, confirms them as their waiter, views bills and cancels paid orders, like an admin', async () => {
-  // Arrange
-  const pizza = await menuItem(api.call, 'Margherita Pizza');
-  const { id: superadminId } = (await api.call('GET', '/auth/me', { token: tokens.superadmin })).body.user;
-  const prepaid = (await api.call('POST', '/orders', {
-    token: tokens.customer,
-    body: { type: 'online', fulfillment: 'pickup', paymentMethod: 'card', items: [{ menuItemId: pizza.id, qty: 1 }] },
-  })).body.order;
-
-  // Act
-  const staffOrder = await api.call('POST', '/orders', { token: tokens.superadmin, body: { type: 'dine-in', items: [{ menuItemId: pizza.id, qty: 1 }] } });
-  const confirmed = await api.call('POST', `/orders/${prepaid.id}/status`, { token: tokens.superadmin, body: { status: 'confirmed' } });
-  const bill = await api.call('GET', `/billing/${prepaid.id}`, { token: tokens.superadmin });
-  const billAsChef = await api.call('GET', `/billing/${prepaid.id}`, { token: tokens.chef });
-  const cancelled = await api.call('POST', `/orders/${prepaid.id}/status`, { token: tokens.superadmin, body: { status: 'cancelled', reason: 'Owner check' } });
-
-  // Assert
-  assert.equal(staffOrder.status, 201);
-  assert.equal(confirmed.status, 200);
-  assert.equal(confirmed.body.order.waiterId, superadminId);
-  assert.equal(bill.status, 200);
-  assert.equal(billAsChef.status, 403);
-  assert.equal(cancelled.status, 200);
-  assert.equal(cancelled.body.order.paymentStatus, 'refunded');
-});
-
-test('the super admin cancels a booking, like an admin', async () => {
-  // Arrange
-  const booking = (await api.call('GET', '/reservations', { token: tokens.admin })).body.reservations
-    .find((r) => ['requested', 'confirmed'].includes(r.status));
-
-  // Act
-  const asChef = await api.call('POST', `/reservations/${booking.id}/cancel`, { token: tokens.chef });
-  const cancelled = await api.call('POST', `/reservations/${booking.id}/cancel`, { token: tokens.superadmin });
-
-  // Assert
-  assert.equal(asChef.status, 403);
-  assert.equal(cancelled.status, 200);
 });
