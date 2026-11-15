@@ -310,6 +310,19 @@ describe('AccountTable', () => {
     expect(within(adaRow).getByRole('menuitem', { name: 'Suspend' })).toBeEnabled();
   });
 
+  it("shows the super admin's own row with its badge, never a picker", () => {
+    // Arrange
+    auth.user = superadmin;
+
+    // Act
+    render(<AccountTable users={[superadmin, admin]} onChanged={vi.fn()} />);
+
+    // Assert
+    const row = screen.getByText('Sabih Super').closest('li')!;
+    expect(within(row).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(row).getByText('Super admin')).toBeInTheDocument();
+  });
+
   it('shows the super admin read-only to an admin', () => {
     // Arrange
     auth.user = admin;

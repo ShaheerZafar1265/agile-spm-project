@@ -393,6 +393,17 @@ describe('StaffShell', () => {
     expect(screen.queryByRole('link', { name: 'Staff management' })).not.toBeInTheDocument();
   });
 
+  it("labels the signed-in role in the sidebar with the role's display name", () => {
+    // Arrange
+    vi.mocked(useAuth).mockReturnValue({ user: makeUser({ role: 'superadmin' }), logout: vi.fn() } as unknown as ReturnType<typeof useAuth>);
+
+    // Act
+    render(<StaffShell>content</StaffShell>);
+
+    // Assert
+    expect(screen.getByText('Super admin')).toBeInTheDocument();
+  });
+
   it('gives the super admin every section an admin gets', () => {
     // Arrange
     const linksFor = (role: User['role']) => {
