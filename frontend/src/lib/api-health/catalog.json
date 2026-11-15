@@ -4716,7 +4716,8 @@
         "waiter",
         "chef",
         "manager",
-        "admin"
+        "admin",
+        "superadmin"
       ],
       "rolesSource": "guard",
       "access": null,
@@ -5059,7 +5060,8 @@
         "waiter",
         "chef",
         "manager",
-        "admin"
+        "admin",
+        "superadmin"
       ],
       "rolesSource": "guard",
       "access": null,
@@ -5112,7 +5114,8 @@
         "waiter",
         "chef",
         "manager",
-        "admin"
+        "admin",
+        "superadmin"
       ],
       "rolesSource": "guard",
       "access": null,
@@ -5163,7 +5166,8 @@
         "waiter",
         "chef",
         "manager",
-        "admin"
+        "admin",
+        "superadmin"
       ],
       "rolesSource": "guard",
       "access": null,
@@ -5219,7 +5223,8 @@
         "waiter",
         "chef",
         "manager",
-        "admin"
+        "admin",
+        "superadmin"
       ],
       "rolesSource": "guard",
       "access": null,
@@ -5275,7 +5280,8 @@
         "waiter",
         "chef",
         "manager",
-        "admin"
+        "admin",
+        "superadmin"
       ],
       "rolesSource": "guard",
       "access": null,
@@ -5331,7 +5337,8 @@
         "waiter",
         "chef",
         "manager",
-        "admin"
+        "admin",
+        "superadmin"
       ],
       "rolesSource": "guard",
       "access": "Waiters see waiters, chefs see chefs, managers see managers, waiters and chefs, the admin sees all staff.",
@@ -5373,7 +5380,8 @@
         "waiter",
         "chef",
         "manager",
-        "admin"
+        "admin",
+        "superadmin"
       ],
       "rolesSource": "guard",
       "access": null,
@@ -5536,7 +5544,8 @@
         "waiter",
         "chef",
         "manager",
-        "admin"
+        "admin",
+        "superadmin"
       ],
       "rolesSource": "guard",
       "access": "Yourself or the admin: everything including pay. Managers: waiters and chefs only, with pay null. Others get 403.",

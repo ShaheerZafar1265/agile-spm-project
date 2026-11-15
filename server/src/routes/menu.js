@@ -10,6 +10,7 @@ import {
 } from '../data/store.js';
 import { requireRole } from '../middleware/auth.js';
 import { text, number, bool, stringList, list } from '../lib/validate.js';
+import { hasRole } from '../lib/hierarchy.js';
 
 const router = Router();
 
@@ -26,7 +27,7 @@ const TAG_LIMITS = { maxItems: 20, maxLength: 40 };
 
 const isStaff = (req) => Boolean(req.user && STAFF_ROLES.includes(req.user.role));
 // Recipes (ingredients and quantities) are kitchen and management information.
-const canSeeRecipes = (req) => Boolean(req.user && ['chef', 'manager', 'admin'].includes(req.user.role));
+const canSeeRecipes = (req) => hasRole(req.user, 'chef', 'manager', 'admin');
 
 function serializeItem(item, withRecipe) {
   const out = { ...item, category: categories.find((c) => c.id === item.categoryId)?.name || '' };

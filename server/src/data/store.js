@@ -14,8 +14,14 @@ import { seedHistory } from './seed-history.js';
 import { seedAttendance } from './seed-attendance.js';
 import { DEFAULT_WAGES } from '../lib/payroll.js';
 
-export const ROLES = ['customer', 'waiter', 'chef', 'manager', 'admin'];
-export const STAFF_ROLES = ['waiter', 'chef', 'manager', 'admin'];
+export const ROLES = ['customer', 'waiter', 'chef', 'manager', 'admin', 'superadmin'];
+export const STAFF_ROLES = ['waiter', 'chef', 'manager', 'admin', 'superadmin'];
+
+/**
+ * The one account bound to the super admin role (lib/hierarchy.js). The API
+ * never assigns the role; scripts/superadmin.js binds it on a database.
+ */
+export const SUPERADMIN_EMAIL = 'sabihuddin106@gmail.com';
 
 export const counters = {};
 
@@ -57,7 +63,7 @@ const SUPERUSER_PASSWORD_HASH = bcrypt.hashSync('Admin@123456', 10);
 
 const seedUsers = [
   { id: 'usr_admin', name: 'Alex Admin', email: 'admin@rest.test', role: 'admin' },
-  { id: 'usr_super_sabih', name: 'Sabih Uddin', email: 'sabihuddin106@gmail.com', role: 'admin', passwordHash: SUPERUSER_PASSWORD_HASH },
+  { id: 'usr_super_sabih', name: 'Sabih Uddin', email: SUPERADMIN_EMAIL, role: 'superadmin', passwordHash: SUPERUSER_PASSWORD_HASH },
   { id: 'usr_super_shahan', name: 'Shahan Arain', email: 'shahanarain33@gmail.com', role: 'admin', passwordHash: SUPERUSER_PASSWORD_HASH },
   { id: 'usr_manager', name: 'Maya Manager', email: 'manager@rest.test', role: 'manager' },
   { id: 'usr_chef', name: 'Carlos Chef', email: 'chef@rest.test', role: 'chef' },
