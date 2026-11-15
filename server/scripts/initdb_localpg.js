@@ -62,6 +62,7 @@ export function parseArgs(argv) {
   const opts = { url: null, fresh: false, yesReally: false, help: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
+    if (arg === '--') continue; // `pnpm run db:init -- …` forwards it
     if (arg === '--fresh') opts.fresh = true;
     else if (arg === '--yes-really') opts.yesReally = true;
     else if (arg === '--help' || arg === '-h') opts.help = true;

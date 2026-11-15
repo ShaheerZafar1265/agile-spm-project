@@ -7,10 +7,12 @@
  *   node scripts/superadmin.js --url=postgres://...       # explicit connection string
  *   node scripts/superadmin.js --yes-really               # required for a Neon database
  *
- * An existing account keeps its password. For an email with no account, the
- * script asks for a password twice (hidden) before it takes the global lock, so
- * the live site is never held while someone types. Running instances reload
- * the store on their next request.
+ * Every bind sets a password typed now (twice, hidden in a terminal; piped
+ * stdin is read for automation) and signs out the account's sessions, so an
+ * account someone registered with the public email beforehand, or a seed
+ * password, never becomes the super admin's credential. The password is asked
+ * before the global lock is taken, so the live site never waits on typing.
+ * Running instances reload the store on their next request.
  */
 import 'dotenv/config';
 import { existsSync } from 'node:fs';
@@ -23,7 +25,7 @@ import { ensureSchema } from '../src/data/relational/schema.js';
 import { bindInDatabase } from '../src/data/superadmin.js';
 import { SUPERADMIN_EMAIL, findUserByEmail } from '../src/data/store.js';
 import { passwordError } from '../src/lib/password-policy.js';
-import { email as readEmail } from '../src/lib/validate.js';
+import { email as readEmail, personName } from '../src/lib/validate.js';
 
 const SERVER_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const log = (...parts) => console.log('[superadmin]', ...parts);
@@ -37,6 +39,7 @@ if (!process.env.DATABASE_URL) {
 function parseArgs(argv) {
   const opts = { email: SUPERADMIN_EMAIL, name: undefined, url: undefined, yesReally: false };
   for (const arg of argv) {
+    if (arg === '--') continue; // `pnpm run superadmin -- …` forwards it
     if (arg === '--yes-really') opts.yesReally = true;
     else if (arg.startsWith('--email=')) opts.email = arg.slice('--email='.length);
     else if (arg.startsWith('--name=')) opts.name = arg.slice('--name='.length);
@@ -46,24 +49,35 @@ function parseArgs(argv) {
   return opts;
 }
 
-/** Read one line from the terminal without echoing what is typed. */
-function askHidden(question) {
-  if (!process.stdin.isTTY) throw new Error('This email has no account yet: run the script in a terminal to type its password.');
-  return new Promise((answer, fail) => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-    let typed = null;
-    rl._writeToOutput = (text) => { if (text.includes(question)) process.stdout.write(question); };
-    rl.question(question, (line) => {
-      typed = line;
-      rl.close();
-    });
-    // Enter resolves; Ctrl+D or Ctrl+C closes without an answer.
-    rl.on('close', () => {
-      process.stdout.write('\n');
-      if (typed === null) fail(new Error('No password entered; nothing was changed.'));
-      else answer(typed);
-    });
+/**
+ * Answers from stdin, in order. In a terminal what is typed stays hidden; piped
+ * input (automation, tests) is read line by line, queued so no line is lost.
+ */
+function promptReader() {
+  const terminal = Boolean(process.stdin.isTTY);
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal });
+  if (terminal) rl._writeToOutput = () => {}; // prompts are written directly, keystrokes are not echoed
+  const lines = [];
+  const waiting = [];
+  let closed = false;
+  const noAnswer = () => new Error('No password entered; nothing was changed.');
+  rl.on('line', (line) => (waiting.length ? waiting.shift().resolve(line) : lines.push(line)));
+  rl.on('SIGINT', () => rl.close());
+  rl.on('close', () => {
+    closed = true;
+    for (const w of waiting.splice(0)) w.reject(noAnswer());
   });
+  return {
+    ask(question) {
+      process.stdout.write(question);
+      let answer;
+      if (lines.length) answer = Promise.resolve(lines.shift());
+      else if (closed) answer = Promise.reject(noAnswer());
+      else answer = new Promise((resolve, reject) => waiting.push({ resolve, reject }));
+      return answer.finally(() => process.stdout.write('\n'));
+    },
+    close: () => rl.close(),
+  };
 }
 
 async function main() {
@@ -74,27 +88,36 @@ async function main() {
   const email = readEmail(opts.email);
 
   const pool = createPool(url, { max: 1, connectionTimeoutMillis: 30_000 });
+  const reader = promptReader();
   try {
     await ensureSchema(pool);
-    // Before any lock: does the account exist? A database the server never used holds the store seed.
+    // Before any lock: who holds this email now? A database the server never used holds the store seed.
     const used = (await pool.query("SELECT 1 FROM sequences WHERE name = 'state_version'")).rowCount > 0;
-    const exists = used
-      ? (await pool.query('SELECT 1 FROM users WHERE lower(email) = $1', [email])).rowCount > 0
-      : Boolean(findUserByEmail(email));
-    let password;
-    if (!exists) {
+    const current = used
+      ? (await pool.query('SELECT name, role::text AS role, created_at FROM users WHERE lower(email) = $1', [email])).rows[0]
+      : findUserByEmail(email);
+    if (current) {
+      const created = String(current.created_at?.toISOString?.() ?? current.createdAt ?? '').slice(0, 10);
+      log(`${email} belongs to the ${current.role} account "${current.name}" (created ${created}).`);
+      log('Binding gives it the password you type now and signs out all of its sessions.');
+      if (opts.name) log('--name is ignored: the existing account keeps its name.');
+    } else {
       if (!opts.name) throw new Error('This email has no account yet: pass --name="Full Name" to create it.');
+      personName(opts.name);
       log(`${email} has no account yet, so it will be created as the super admin.`);
-      password = await askHidden('Password for the new account: ');
-      const weak = passwordError(password, { email, name: opts.name });
-      if (weak) throw new Error(weak);
-      if ((await askHidden('Type it again: ')) !== password) throw new Error('The passwords do not match.');
     }
+    const password = await reader.ask('Password for the super admin: ');
+    const weak = passwordError(password, { email, name: current?.name ?? opts.name });
+    if (weak) throw new Error(weak);
+    if ((await reader.ask('Type it again: ')) !== password) throw new Error('The passwords do not match.');
+    reader.close();
+
     const { user, created, demoted, version } = await bindInDatabase(pool, { email, name: opts.name, password });
     log(`${user.email} is now the super admin (${created ? 'account created' : 'existing account promoted'}).`);
-    log(demoted.length ? `Now an admin again: ${demoted.join(', ')}.` : 'No other account held the role.');
+    log(demoted.length ? `Now an admin again, signed out: ${demoted.join(', ')}.` : 'No other account held the role.');
     log(`Store version ${version}: running instances reload it on their next request.`);
   } finally {
+    reader.close();
     await pool.end();
   }
 }
