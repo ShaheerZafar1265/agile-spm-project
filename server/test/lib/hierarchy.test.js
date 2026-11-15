@@ -1,9 +1,7 @@
 /** Account hierarchy — lib/hierarchy.js: who may manage whose staff account. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import * as hierarchy from '../../src/lib/hierarchy.js';
-
-const { ASSIGNABLE_ROLES, canManage, hasRole, rankOf } = hierarchy;
+import { ASSIGNABLE_ROLES, canManage, hasRole, rankOf } from '../../src/lib/hierarchy.js';
 
 const user = (id, role) => ({ id, role });
 
