@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/toast';
 import { NotFound } from 'next';
 import type { User } from '@/types';
 
-export default function AccountPage() {
+export default async function AccountPage() {
   const { user } = useAuth();
   const router = useRouter();
   const search = useSearchParams();

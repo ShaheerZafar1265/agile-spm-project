@@ -66,7 +66,7 @@ export function PresenceList({
   accountHref?: (p: PresenceEntry) => string | null;
 }) {
   const groups = ORDER.map((state) => ({ state, list: people.filter((p) => p.state === state).sort((a, b) => a.name.localeCompare(b.name)) }));
-  const counts = groups.map((g) => `${g.list.length} ${STATE_META[g.state].label.toLowerCase()}`).join(' · ');
+  const counts = groups.map((g) => `${g.list.length} ${STATE_META[g.state].label.toLowerCase()}`).join('-');
 
   return (
     <section className="card p-3.5 sm:p-5" aria-labelledby={`presence-${variant}-heading`}>
