@@ -10,8 +10,13 @@ export const STAFF_ROLES: Role[] = ['waiter', 'chef', 'manager', 'admin', 'super
 /** Roles the API can give an account. The super admin is bound to one account, never assigned. */
 export const ASSIGNABLE_ROLES: Role[] = ['customer', 'waiter', 'chef', 'manager', 'admin'];
 
-/** The role whose permissions `role` has: the super admin acts as an admin. */
-const actsAs = (role: Role): Role => (role === 'superadmin' ? 'admin' : role);
+/**
+ * Whether `role` is one of `roles`. The super admin holds every admin
+ * permission, like the server's hasRole (server/src/lib/hierarchy.js).
+ */
+export function holdsRole(role: Role | null | undefined, roles: readonly Role[]): boolean {
+  return Boolean(role && (roles.includes(role) || (role === 'superadmin' && roles.includes('admin'))));
+}
 
 export const SECTION_ROLES = {
   overview: STAFF_ROLES,
@@ -35,14 +40,14 @@ export const SECTION_ROLES = {
 export type Section = keyof typeof SECTION_ROLES;
 
 export function canAccess(role: Role | null | undefined, section: Section): boolean {
-  return Boolean(role && (SECTION_ROLES[section] as Role[]).includes(actsAs(role)));
+  return holdsRole(role, SECTION_ROLES[section] as Role[]);
 }
 
 export function isStaff(role: Role | null | undefined): boolean {
   return Boolean(role && STAFF_ROLES.includes(role));
 }
 
-const anyOf = (...roles: Role[]) => (role: Role | null | undefined) => Boolean(role && roles.includes(actsAs(role)));
+const anyOf = (...roles: Role[]) => (role: Role | null | undefined) => holdsRole(role, roles);
 
 /** Fine-grained actions within a section. */
 export const can = {
