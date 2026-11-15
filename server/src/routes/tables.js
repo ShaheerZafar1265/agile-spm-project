@@ -5,6 +5,7 @@ import { isActive, userName } from '../lib/orders.js';
 import { syncTableHolds, isLate } from '../lib/reservations.js';
 import { localDate } from '../lib/time.js';
 import { text, number, bool } from '../lib/validate.js';
+import { hasRole } from '../lib/hierarchy.js';
 
 const router = Router();
 const FLOOR_STAFF = ['waiter', 'manager', 'admin'];
@@ -78,7 +79,7 @@ router.patch('/:id', floorRoles, (req, res) => {
   if (!table) return res.status(404).json({ error: 'Table not found.' });
   const body = req.body || {};
 
-  if (LAYOUT_FIELDS.some((k) => body[k] !== undefined) && !['manager', 'admin'].includes(req.user.role)) {
+  if (LAYOUT_FIELDS.some((k) => body[k] !== undefined) && !hasRole(req.user, 'manager', 'admin')) {
     return res.status(403).json({ error: 'Only managers can change the floor layout.' });
   }
 
@@ -94,7 +95,7 @@ router.patch('/:id', floorRoles, (req, res) => {
     if (waiterId && !users.some((u) => u.id === waiterId && u.role !== 'customer')) {
       return res.status(400).json({ error: 'Unknown staff member.' });
     }
-    if (waiterId && !users.some((u) => u.id === waiterId && FLOOR_STAFF.includes(u.role) && u.active)) {
+    if (waiterId && !users.some((u) => u.id === waiterId && hasRole(u, ...FLOOR_STAFF) && u.active)) {
       return res.status(400).json({ error: 'Only active floor staff (waiters and managers) can look after a table.' });
     }
   }

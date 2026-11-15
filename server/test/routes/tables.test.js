@@ -191,3 +191,18 @@ test('table fields are type-checked: whole-number table numbers, finite seats, s
   assert.equal(after.seats, table.seats, 'the rejected edit changed nothing');
   assert.equal(after.held, table.held);
 });
+
+test('the super admin changes the floor layout, like an admin', async () => {
+  // Arrange
+  const superadmin = await api.login('sabihuddin106@gmail.com', 'Admin@123456');
+  const waiter = await api.login('waiter');
+  const [table] = (await api.call('GET', '/tables', { token: superadmin })).body.tables;
+
+  // Act
+  const layout = await api.call('PATCH', `/tables/${table.id}`, { token: superadmin, body: { seats: table.seats } });
+  const asWaiter = await api.call('PATCH', `/tables/${table.id}`, { token: waiter, body: { seats: table.seats } });
+
+  // Assert
+  assert.equal(layout.status, 200);
+  assert.equal(asWaiter.status, 403);
+});

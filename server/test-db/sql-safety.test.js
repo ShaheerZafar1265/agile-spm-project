@@ -7,11 +7,12 @@ import 'dotenv/config';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPool } from '../src/data/db.js';
+import { requireTestDatabase } from './guard.js';
 import { snapshot } from '../src/data/snapshot.js';
 import { ensureSchema } from '../src/data/relational/schema.js';
 import { saveStore, loadStore } from '../src/data/relational/index.js';
 
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for the database tests.');
+requireTestDatabase();
 const pool = createPool(process.env.DATABASE_URL);
 after(() => pool.end());
 

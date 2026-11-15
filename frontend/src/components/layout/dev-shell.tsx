@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { isStaff } from '@/lib/permissions';
 import { Badge } from '@/components/ui/badge';
 
 export function DevShell({ children }: { children: React.ReactNode }) {
@@ -44,7 +45,7 @@ export function DevShell({ children }: { children: React.ReactNode }) {
             >
               Backlog & Board
             </Link>
-            {['waiter', 'chef', 'manager', 'admin'].includes(user.role) && (
+            {isStaff(user.role) && (
               <Link
                 href="/staff"
                 className="whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100 hover:text-stone-900"

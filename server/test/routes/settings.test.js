@@ -200,3 +200,17 @@ test('restaurant name and address are limited to 200 characters', async () => {
   // Assert
   assert.equal(res.status, 400);
 });
+
+test('the super admin gets the full settings, like an admin', async () => {
+  // Arrange
+  const superadmin = await api.login('sabihuddin106@gmail.com', 'Admin@123456');
+  const waiter = await api.login('waiter');
+
+  // Act
+  const full = (await api.call('GET', '/settings', { token: superadmin })).body.settings;
+  const publicView = (await api.call('GET', '/settings', { token: waiter })).body.settings;
+
+  // Assert
+  assert.ok('lateGraceMinutes' in full, 'staff-only settings are included');
+  assert.ok(!('lateGraceMinutes' in publicView));
+});

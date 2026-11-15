@@ -2,7 +2,7 @@
 
 A full-stack restaurant operations platform built as a 10-sprint Agile/Scrum project. It covers the whole flow from **customer orders** through **waiter confirms**, **kitchen prepares** and **waiter serves**, to **bill settled**, and from there **inventory deducts** and **analytics update**. Five stakeholder roles each get their own permissions and screens.
 
-All **16 sprints / 80 user stories / 347 story points** of the Product Backlog are implemented: the original 10 modules plus accounts, attendance, payroll, UI polish and validation. Stories are verified by module-wise tests (`server/test/` and `frontend/src/**/__tests__/`). Each story's demo path and test are listed on the in-app **Scrum board** (`/dev`).
+All **17 sprints / 82 user stories / 355 story points** of the Product Backlog are implemented: the original 10 modules plus accounts, attendance, payroll, UI polish, validation and the super admin. Stories are verified by module-wise tests (`server/test/` and `frontend/src/**/__tests__/`). Each story's demo path and test are listed on the in-app **Scrum board** (`/dev`).
 
 ## Monorepo layout
 
@@ -76,6 +76,7 @@ Open http://localhost:3000. The API base is http://localhost:4000/api (Next prox
 | `pnpm --dir server db:reset`      | Rewrite the tables with fresh demo data          |
 | `pnpm --dir server db:init`       | Create schema + seed demo data (local or Neon)   |
 | `pnpm --dir server db:init:fresh` | Drop all tables, recreate schema, reseed         |
+| `pnpm --dir server superadmin`    | Bind the super admin to its email on the database (`--yes-really` for Neon) |
 | `pnpm --dir server lint`          | Syntax-check every server file                   |
 | `pnpm --dir frontend lint`        | ESLint for the web app                           |
 | `pnpm build`                      | Production build of the web app (includes type check) |
@@ -92,6 +93,8 @@ Open http://localhost:3000. The API base is http://localhost:4000/api (Next prox
 
 Also seeded: `chef2@rest.test` (Cara Cook) and `waiter2@rest.test` (Wendy Server), so staff performance has more than one person to compare.
 
+Two team accounts use the dev password `Admin@123456` instead: `sabihuddin106@gmail.com`, **the super admin**, and `shahanarain33@gmail.com`, an admin. Every seed password is public, so the production super admin gets its own password from `pnpm --dir server superadmin` (see *Roles and permissions*).
+
 ## Roles and permissions
 
 Each role gets what its job needs. Reversing money, deleting history, and changing staffing, pricing or policy need a manager.
@@ -102,17 +105,20 @@ Each role gets what its job needs. Reversing money, deleting history, and changi
 | **Waiter** | Take, confirm, edit (before confirmation) and serve orders; assign tables, set table status and holds; handle reservations; add and edit customers; take payment (tip, split, pay); edit their own details and password (My account) | Reverse a payment, cancel a paid order, refund, delete customers, see recipes, edit the menu, inventory, shifts, analytics or settings |
 | **Chef** | Run the kitchen queue (start, ready, rush, reorder), toggle dish availability, see recipes, see inventory and record stock counts; edit their own details and password (My account) | Billing, customers, tables, reservations, menu prices or recipes, purchase orders, shifts |
 | **Manager** | Everything operational: menu and recipes, inventory and purchase orders, refunds and payment reversals, cancelling paid orders, deleting customers (only those with no order history), shifts and roster, approving waiter/chef applications, analytics, settings, viewing accounts; edit details and reset passwords of waiters and chefs | Manage another manager's or an admin's account, change roles, suspend or delete accounts, approve managers |
-| **Admin** | Everything, including the details, passwords, roles and status of managers, waiters and chefs | Manage another admin's account (admins look after their own) |
+| **Admin** | Everything, including the details, passwords, roles and status of managers, waiters and chefs | Manage another admin's account (the super admin does) or the super admin's |
+| **Super admin** | Everything an admin can, plus the details, passwords, roles and status of admins | Be assigned, suspended or removed through the app, or change its own email: the role is bound to one account |
 
-Accounts follow a rank, admin > manager > chef = waiter. You can manage staff accounts strictly below yours and manage your own details in **My account**. Self-service changes to the sign-in email or password require the current password. An admin can set a new password for a staff account below them. A manager's password reset issues a temporary password that opens the password-change flow before the rest of the API becomes available.
+Accounts follow a rank, superadmin > admin > manager > chef = waiter. You can manage staff accounts strictly below yours and manage your own details in **My account**. Self-service changes to the sign-in email or password require the current password. An admin can set a new password for a staff account below them. A manager's password reset issues a temporary password that opens the password-change flow before the rest of the API becomes available.
+
+**The super admin** is one account, bound to `SUPERADMIN_EMAIL` (`sabihuddin106@gmail.com`, `server/src/data/store.js`). It holds every admin permission (`hasRole` in `server/src/lib/hierarchy.js` lets it pass every check that admits an admin) and is the only role that manages admins. Nobody can manage the super admin. The API never assigns the role (`403`), the super admin cannot change its email, and Postgres allows at most one (`uq_users_one_superadmin`). To bind it on a database, or move it to another email, run `pnpm --dir server superadmin -- [--email=… --name="…"] [--yes-really]`. Every bind sets a password typed at that moment (asked twice, input hidden) and signs out the account's sessions, whether it promotes an existing account or creates one. An account someone registered with the public email beforehand, or a seed password, therefore never becomes the super admin's credential. Any previous super admin becomes an admin and is signed out. It runs under the same lock as the API and bumps the store version, so running instances pick it up on their next request. `db:reset` reseeds the users, so run it again after a reset.
 
 The web app uses a 12-hour HttpOnly session cookie through the same-origin `/api` proxy. Production uses a Secure cookie and requires a randomly generated `JWT_SECRET`. Browser writes send `X-Requested-With: RestaurantOps`, and login, registration and password changes return the user while setting the cookie. Users migrating from local storage sign in again. Signing out revokes all sessions for the account. Suspension, password changes and resets also revoke existing sessions.
 
 Login allows 30 attempts per IP and five failed attempts per normalized email in 15 minutes. Registration allows 10 attempts per IP in the same window. The API returns `429` with `Retry-After` when throttled. Counters are per API instance and reset when the instance restarts. Use dedicated credentials in any deployment with real data, since the demo seeds include known passwords.
 
-Every staff member clocks their own attendance and sees their own hours and pay estimate (`/api/attendance`, `/api/workforce`); managers see waiters' and chefs' attendance but never wages or pay, only the admin sees and edits wages, bonuses and everyone's pay, and the "who's working now" board shows waiters to waiters, chefs to chefs, managers plus waiters and chefs to managers, and all staff to the admin.
+Every staff member clocks their own attendance and sees their own hours and pay estimate (`/api/attendance`, `/api/workforce`); managers see waiters' and chefs' attendance but never wages or pay, admins see and edit the wages, bonuses and pay of everyone up to admin, the super admin everyone's, and the "who's working now" board shows waiters to waiters, chefs to chefs, managers plus waiters and chefs to managers, all staff up to admin to admins, and everyone to the super admin.
 
-The server enforces this with `requireRole` guards, plus handler checks where a rule depends on the record (an order's owner, a paid order, a chef editing only availability). `server/test/routes/access-matrix.test.js` calls every guarded endpoint as a guest and as each role, and fails if a route is added without an entry. The UI hides the same actions through `frontend/src/lib/permissions.ts`. The public booking and job-application forms are rate limited per IP for guests: 5 bookings per 10 minutes and 3 applications per hour.
+The server enforces this with `requireRole` guards, plus handler checks where a rule depends on the record (an order's owner, a paid order, a chef editing only availability). `server/test/routes/access-matrix.test.js` calls every guarded endpoint as a guest and as each role (the super admin's expected access is derived from admin's), and fails if a route is added without an entry. The UI hides the same actions through `frontend/src/lib/permissions.ts`. The public booking and job-application forms are rate limited per IP for guests: 5 bookings per 10 minutes and 3 applications per hour.
 
 ### Validation & security
 
@@ -186,6 +192,7 @@ The catalogue is read from the Express routers at runtime, so a new route shows 
 | 9 | Staff | Public job applications → approval creates accounts, role assignment, suspend/remove (immediate), shift rota + personal schedule, performance metrics |
 | 10 | Analytics | Revenue/order trends by day/week/month, top dishes by qty/revenue, table turnover & occupancy, peak hours, inventory health, no-show rate |
 | 13–14 | Attendance & payroll — My work page and Workforce hub | Clock in/out and breaks, lateness with a grace period, automatic unpaid break on long days, missed shifts, presence board, day/week/month/hour-of-day analytics, monthly pay estimate (hours × wage + tips + bonuses − late penalties), admin wages and bonuses |
+| 17 | Super admin & account governance | One super admin above every admin, bound to one email: manages admins, cannot be assigned or managed, at most one enforced by Postgres, bound on a database by a guarded script |
 
 ## Design decisions
 

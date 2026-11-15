@@ -4,6 +4,7 @@ import { requireRole } from '../middleware/auth.js';
 import { adjustStock } from '../lib/orders.js';
 import { iso } from '../lib/time.js';
 import { text, number } from '../lib/validate.js';
+import { hasRole } from '../lib/hierarchy.js';
 
 // A cleared field arrives as null; store it as empty, not the text "null".
 const cleanText = (value) => (value == null ? '' : String(value).trim());
@@ -95,7 +96,7 @@ router.patch('/:id', kitchenRoles, (req, res) => {
   if (!item) return res.status(404).json({ error: 'Inventory item not found.' });
   const body = req.body || {};
   const fieldKeys = Object.keys(body).filter((k) => k !== 'delta');
-  if (fieldKeys.length && !['manager', 'admin'].includes(req.user.role)) {
+  if (fieldKeys.length && !hasRole(req.user, 'manager', 'admin')) {
     return res.status(403).json({ error: 'Only managers can edit ingredient details.' });
   }
   const error = validateFields(body, true);

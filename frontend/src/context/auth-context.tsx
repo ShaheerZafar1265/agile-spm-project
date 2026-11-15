@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import type { Role, User } from '@/types';
 import { ApiError, AUTH_EXPIRED_EVENT, authApi, clearLegacyAuth } from '@/lib/api';
+import { holdsRole } from '@/lib/permissions';
 import { setWorkforceMockUser } from '@/lib/workforce-api';
 
 export { AUTH_EXPIRED_EVENT } from '@/lib/api';
@@ -106,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [replaceUser]);
 
-  const hasRole = useCallback((...roles: Role[]) => Boolean(user && roles.includes(user.role)), [user]);
+  const hasRole = useCallback((...roles: Role[]) => holdsRole(user?.role, roles), [user]);
 
   const value = useMemo(
     () => ({ user, loading, signingOut, login, register, logout, refreshUser, updateSession: replaceUser, hasRole }),

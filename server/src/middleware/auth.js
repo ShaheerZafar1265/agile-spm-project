@@ -1,6 +1,7 @@
 import { verifyToken } from '../lib/jwt.js';
 import { findUserById } from '../data/store.js';
 import { sessionCookie } from '../lib/session-cookie.js';
+import { hasRole } from '../lib/hierarchy.js';
 
 function userFromRequest(req) {
   const header = req.headers.authorization || '';
@@ -53,15 +54,15 @@ export function revokeSession(req, res, next) {
 }
 
 /**
- * Role guard factory: allow only the listed roles. Must run after
- * `authenticate` or `optionalAuth`.
+ * Role guard factory: allow only the listed roles (the super admin passes
+ * wherever an admin does). Must run after `authenticate` or `optionalAuth`.
  */
 export function requireRole(...allowedRoles) {
   const guard = (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required.' });
     }
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!hasRole(req.user, ...allowedRoles)) {
       return res.status(403).json({ error: 'You do not have permission to perform this action.' });
     }
     return next();

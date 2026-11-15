@@ -29,7 +29,7 @@ That design is fine for a course demo and bad for anything else:
 ### What we are moving to
 
 A proper relational schema: **28 tables**, explicit foreign keys with `ON DELETE` behaviour,
-`CHECK` constraints, enums for closed value sets, and **64 indexes** aimed at the queries the
+`CHECK` constraints, enums for closed value sets, and **65 indexes** aimed at the queries the
 product actually runs. The database becomes the query engine for analytics and inventory
 instead of a dumb blob store.
 
@@ -217,7 +217,8 @@ involved in that order so a receipt is self-explanatory.
   `notification_channel`, `application_status`, `application_desired_role`,
   `customer_type`, `order_priority`, `order_source`, `order_type`, `fulfillment_method`,
   `payment_method`, `modifier_type`, `split_mode`, `split_payment_method` — 21 in total).
-  An invalid value is rejected by the database, not by a route handler.
+  An invalid value is rejected by the database, not by a route handler. `role` holds the five
+  stakeholder roles plus `superadmin`, added by `004_superadmin_role.sql` (see §7.5).
   `notifications.type` stays free-form `text` on purpose: new event types
   (`low_stock`, `item_ready`, `order_placed`, …) must not need a migration.
 - **`jsonb` for genuinely open shapes**: `menu_items.modifiers` (modifier groups and their
@@ -498,7 +499,7 @@ grow in real use.
 
 | # | Table | What it holds | Seed rows | Grows with |
 |---|---|---|---|---|
-| 1 | `users` | Staff and guest logins: name, email, bcrypt hash, role, active flag, `token_version`, hourly wage | 7 | new sign-ups, approved applicants |
+| 1 | `users` | Staff and guest logins: name, email, bcrypt hash, role, active flag, `token_version`, hourly wage; at most one super admin | 9 | new sign-ups, approved applicants |
 | 2 | `customers` | People who dine: contact details, walk-in/online type, loyalty balance, linked account | 6 | every guest, online or at the door |
 | 3 | `customer_preferences` | Dietary requirements and allergies, one row per (customer, kind, value) | 12 | edits to a guest's profile |
 | 4 | `loyalty_ledger` | Append-only audit trail of loyalty point movements (delta, reason, order) | 0 | every order that earns or spends points |
@@ -534,7 +535,7 @@ Legacy table (no longer used): `app_state` — the old single-row snapshot. See
 
 ## 6. Indexes
 
-64 indexes in total. Only the ones that serve a real query are listed.
+65 indexes in total (64 in `001_schema.sql`, one in `005_one_superadmin.sql`). Only the ones that serve a real query are listed.
 
 ### Identity and accounts
 
@@ -542,6 +543,7 @@ Legacy table (no longer used): `app_state` — the old single-row snapshot. See
 |---|---|
 | `uq_users_ext_id` | Look up a user by the legacy string id used in the API (`/api/users/usr_admin`) |
 | `uq_users_email_lower` | Login and "email already registered" lookups (case-insensitive) |
+| `uq_users_one_superadmin` (partial) | **At most one super admin.** A unique index on `role` `WHERE role = 'superadmin'`: every such row has the same indexed value, so a second super admin is a unique violation |
 | `uq_customers_ext_id` | Customer lookup by legacy id |
 | `uq_customers_user_id` | "Find the customer record of the signed-in user" |
 | `idx_customers_name` | Customer search and alphabetical list |
@@ -642,7 +644,7 @@ cp server/.env.example server/.env
 pnpm --dir server db:init
 ```
 
-`db:init` applies `server/schema/001_schema.sql` and then `server/schema/002_seed.sql`. It is
+`db:init` applies the schema files (`001_schema.sql`, `003_store_fields.sql`, `004_superadmin_role.sql`, `005_one_superadmin.sql`, one transaction each, in that order) and then `002_seed.sql`. It is
 **idempotent**: running it against a database that already has the schema re-applies the DDL
 without touching the data, so it is safe to run again.
 
@@ -693,11 +695,35 @@ The DDL is plain SQL, so `psql` works as well:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/001_schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/003_store_fields.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/004_superadmin_role.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/005_one_superadmin.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/002_seed.sql
 ```
 
+The seed comes last: it inserts the super admin row, which needs the enum value from `004` to be committed first.
+
 `ON_ERROR_STOP=1` makes `psql` stop at the first error instead of continuing with a
 half-applied schema.
+
+### 7.5 Binding the super admin
+
+The super admin is the one account above every admin (`server/src/lib/hierarchy.js`). The API never assigns the role, so it is bound on the database:
+
+```bash
+pnpm --dir server superadmin                                   # SUPERADMIN_EMAIL (store.js), local DATABASE_URL
+pnpm --dir server superadmin -- --name="Sabih Uddin" --yes-really   # Neon
+pnpm --dir server superadmin -- --email=x@y.com --name="X Y"   # move the binding to another email
+```
+
+- **Every bind sets a password typed at that moment**, whether it promotes an existing account or creates one:
+  - It is asked twice, with the input hidden, and checked against the password policy **before** the lock is taken. Piped stdin is accepted for automation.
+  - The bind also signs out all of the account's sessions.
+  - Registration has no email verification and the bound email is public. So an account someone created with that email beforehand, or the seed's public dev password (e.g. after `db:reset`), never becomes the super admin's credential.
+- The script prints which account it is about to promote (role, name, creation date). A new email needs `--name`.
+- The bind itself follows the persistence protocol (§8): `BEGIN`, `pg_advisory_xact_lock(727274)`, load the store, bind, `saveStore`, bump `state_version`, `COMMIT`. Running instances reload on their next request.
+- Any previous super admin becomes an admin and is signed out. `uq_users_one_superadmin` makes a second super admin impossible at the database level.
+- `004_superadmin_role.sql` (`ALTER TYPE role ADD VALUE`) and `005_one_superadmin.sql` (the index) are separate files, because Postgres refuses to use a new enum value inside the transaction that added it.
 
 ---
 
@@ -740,7 +766,7 @@ Store fields that needed schema support:
 
 `loyalty_ledger` is created but stays empty: the store keeps only the balance.
 
-The schema files (`001`, `003`) are applied by the server itself on its first database
+The schema files (`001`, `003`, `004`, `005`) are applied by the server itself on its first database
 request (`ensureSchema` in `server/src/data/db.js`); every statement is idempotent.
 
 Timing (local Postgres 16, full demo store ≈ 850 orders, 1.4 MB of JSON): a save takes

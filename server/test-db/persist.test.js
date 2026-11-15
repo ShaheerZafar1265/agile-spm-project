@@ -12,8 +12,9 @@ import { snapshot, restore } from '../src/data/snapshot.js';
 import { setPool, createPool } from '../src/data/db.js';
 import { persistState } from '../src/data/persist.js';
 import { saveStore } from '../src/data/relational/index.js';
+import { requireTestDatabase } from './guard.js';
 
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for the database tests.');
+requireTestDatabase();
 
 const initial = snapshot();
 let pool;
