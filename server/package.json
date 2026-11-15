@@ -14,6 +14,8 @@
     "db:reset": "node scripts/db-reset.js",
     "db:init": "node scripts/initdb_localpg.js",
     "db:init:fresh": "node scripts/initdb_localpg.js --fresh",
+    "seed:team": "node scripts/seed-team.js",
+    "seed:operations": "node scripts/seed-operations.js",
     "export:health": "node scripts/export-health.js"
   },
   "dependencies": {
