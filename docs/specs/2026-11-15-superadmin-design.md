@@ -79,7 +79,7 @@ Add a sixth role, **`superadmin`**, ranked above admin. Exactly one account hold
   - `staff-shell` (badge tone)
   - `applications-panel` (`can.approveManagers`)
   - `dev-shell` (`isStaff`)
-  - `workforce-mock`
+- `workforce-mock` (test and demo data only) gets super admin entries in its per-role tables: wage, shift templates, presence scope. Its admin checks stay as they are, because its demo data has no super admin and production never enables the mock.
 
 ### Binding on an existing database: `scripts/superadmin.js`
 

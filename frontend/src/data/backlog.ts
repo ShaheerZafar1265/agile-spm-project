@@ -844,6 +844,36 @@ export const SPRINTS: SprintBacklog[] = [
       },
     ],
   },
+  {
+    sprint: 17,
+    module: 'Super Admin & Account Governance',
+    goal: 'Put one super admin, bound to one email, above every admin, so that admins can be managed like any other account.',
+    priority: 'Must',
+    lead: '#5',
+    status: 'done',
+    stakeholders: ['Admin', 'Super admin'],
+    stories: [
+      {
+        id: 'US17.1', points: 5,
+        text: 'As the platform owner, I want one super admin above every admin, bound to my email, so that admins can be reset, suspended, demoted or removed when needed.',
+        acceptanceCriteria: [
+          'Given the super admin, when they edit, reset or set the password of, change the role of, suspend or remove an admin, then it succeeds; given an admin, when they try any of these on the super admin, then the API answers 403.',
+          'Given any account, when someone tries to assign the super admin role through the API, then it is refused with 403, and the super admin cannot change its own email.',
+          'Given every guarded endpoint, then the super admin reaches exactly what an admin reaches; admins see attendance and pay up to their own rank, the super admin everyone’s.',
+        ],
+        evidence: { screen: 'Sign in as the super admin → Staff management: an admin row has every control and no "Super admin" option', test: 'routes/access-matrix.test.js · routes/auth.test.js · routes/workforce.test.js' },
+      },
+      {
+        id: 'US17.2', points: 3,
+        text: 'As an operator, I want a guarded script that binds the super admin on a database, so that production has exactly one super admin without anyone editing tables by hand.',
+        acceptanceCriteria: [
+          'Given a database, when `pnpm --dir server superadmin` runs, then the account with the bound email becomes the only super admin and running instances reload it; Postgres refuses a second super admin.',
+          'Given a Neon database without --yes-really, then the script refuses before connecting; given an email with no account, then it asks for the password twice with the input hidden.',
+        ],
+        evidence: { screen: 'Terminal: pnpm --dir server superadmin -- --yes-really', test: 'test-db/superadmin.test.js · test-db/schema.test.js' },
+      },
+    ],
+  },
 ];
 
 export const BACKLOG_SUMMARY: BacklogSummary = (() => {
