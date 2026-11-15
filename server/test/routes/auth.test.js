@@ -215,13 +215,13 @@ test('/auth/me is 401 without a valid token', async () => {
   assert.equal(garbage.status, 401);
 });
 
-test('/auth/roles lists the five stakeholder roles', async () => {
+test('/auth/roles lists the five stakeholder roles and the super admin', async () => {
   // Act
   const res = await api.call('GET', '/auth/roles');
 
   // Assert
   assert.equal(res.status, 200);
-  assert.deepEqual([...res.body.roles].sort(), ['admin', 'chef', 'customer', 'manager', 'waiter']);
+  assert.deepEqual([...res.body.roles].sort(), ['admin', 'chef', 'customer', 'manager', 'superadmin', 'waiter']);
 });
 
 /** Hire a fresh staff member through the real application flow; returns { id, email, password, user }. */
@@ -496,20 +496,20 @@ test('DELETE /auth/users/:id removes a staff account and unassigns them from tab
   assert.equal(afterDelete.waiterId, null, 'table waiter assignment was cleared');
 });
 
-test('superusers sabihuddin106@gmail.com and shahanarain33@gmail.com authenticate as admin and reach admin endpoints', async () => {
+test('superusers sign in (sabihuddin106@gmail.com as the super admin, shahanarain33@gmail.com as an admin) and reach admin endpoints', async () => {
   // Arrange
   const superusers = [
-    { email: 'sabihuddin106@gmail.com', name: 'Sabih Uddin' },
-    { email: 'shahanarain33@gmail.com', name: 'Shahan Arain' },
+    { email: 'sabihuddin106@gmail.com', name: 'Sabih Uddin', role: 'superadmin' },
+    { email: 'shahanarain33@gmail.com', name: 'Shahan Arain', role: 'admin' },
   ];
 
-  for (const { email, name } of superusers) {
+  for (const { email, name, role } of superusers) {
     // Act — login with configured password
     const res = await api.call('POST', '/auth/login', { body: { email, password: 'Admin@123456' } });
 
     // Assert
     assert.equal(res.status, 200);
-    assert.equal(res.body.user.role, 'admin');
+    assert.equal(res.body.user.role, role);
     assert.equal(res.body.user.name, name);
     assert.equal(res.body.user.email, email);
 
@@ -526,6 +526,95 @@ test('superusers sabihuddin106@gmail.com and shahanarain33@gmail.com authenticat
 
     // Assert
     assert.equal(fallbackRes.status, 200);
-    assert.equal(fallbackRes.body.user.role, 'admin');
+    assert.equal(fallbackRes.body.user.role, role);
   }
+});
+
+/* ------------------------------------------------ the super admin (bound role) */
+
+/** The seeded account bound to the super admin role (store.js SUPERADMIN_EMAIL) and its dev password. */
+const SUPERADMIN = { id: 'usr_super_sabih', email: 'sabihuddin106@gmail.com', password: 'Admin@123456' };
+
+test('the super admin manages an admin: details, password reset, a typed password, role, suspension and removal', async () => {
+  // Arrange — a fresh admin: hired as a manager, then promoted by the super admin
+  const superadmin = await api.login(SUPERADMIN.email, SUPERADMIN.password);
+  const { id } = await hire('manager', 'admin');
+  const promoted = await api.call('PATCH', `/auth/users/${id}`, { token: superadmin, body: { role: 'admin' } });
+
+  // Act
+  const profile = await api.call('PATCH', `/auth/users/${id}/profile`, { token: superadmin, body: { name: 'Second Admin' } });
+  const reset = await api.call('POST', `/auth/users/${id}/reset-password`, { token: superadmin });
+  const typed = await api.call('POST', `/auth/users/${id}/password`, { token: superadmin, body: { newPassword: 'Ledger-Kite-42!' } });
+  const suspended = await api.call('PATCH', `/auth/users/${id}`, { token: superadmin, body: { active: false } });
+  const reactivated = await api.call('PATCH', `/auth/users/${id}`, { token: superadmin, body: { active: true } });
+  const demoted = await api.call('PATCH', `/auth/users/${id}`, { token: superadmin, body: { role: 'manager' } });
+  const repromoted = await api.call('PATCH', `/auth/users/${id}`, { token: superadmin, body: { role: 'admin' } });
+  const removed = await api.call('DELETE', `/auth/users/${id}`, { token: superadmin });
+
+  // Assert
+  assert.equal(promoted.status, 200);
+  assert.equal(promoted.body.user.role, 'admin');
+  assert.equal(profile.status, 200);
+  assert.equal(profile.body.user.name, 'Second Admin');
+  assert.equal(reset.status, 200);
+  assert.ok(reset.body.tempPassword, 'a one-time password is issued');
+  assert.equal(typed.status, 200);
+  assert.equal(suspended.body.user.active, false);
+  assert.equal(reactivated.body.user.active, true);
+  assert.equal(demoted.body.user.role, 'manager');
+  assert.equal(repromoted.body.user.role, 'admin');
+  assert.equal(removed.status, 200);
+});
+
+test('an admin cannot manage the super admin in any way', async () => {
+  // Arrange
+  const admin = await api.login('admin');
+
+  // Act
+  const attempts = [
+    await api.call('PATCH', `/auth/users/${SUPERADMIN.id}/profile`, { token: admin, body: { name: 'Taken Over' } }),
+    await api.call('POST', `/auth/users/${SUPERADMIN.id}/reset-password`, { token: admin }),
+    await api.call('POST', `/auth/users/${SUPERADMIN.id}/password`, { token: admin, body: { newPassword: 'Ledger-Kite-42!' } }),
+    await api.call('PATCH', `/auth/users/${SUPERADMIN.id}`, { token: admin, body: { role: 'admin' } }),
+    await api.call('PATCH', `/auth/users/${SUPERADMIN.id}`, { token: admin, body: { active: false } }),
+    await api.call('DELETE', `/auth/users/${SUPERADMIN.id}`, { token: admin }),
+  ];
+
+  // Assert
+  assert.deepEqual(attempts.map((r) => r.status), [403, 403, 403, 403, 403, 403]);
+});
+
+test('nobody can assign the super admin role, not even the super admin', async () => {
+  // Arrange
+  const superadmin = await api.login(SUPERADMIN.email, SUPERADMIN.password);
+  const admin = await api.login('admin');
+  const { id } = await hire('waiter');
+
+  // Act
+  const bySuperadmin = await api.call('PATCH', `/auth/users/${id}`, { token: superadmin, body: { role: 'superadmin' } });
+  const byAdmin = await api.call('PATCH', `/auth/users/${id}`, { token: admin, body: { role: 'superadmin' } });
+  const after = (await api.call('GET', '/auth/users', { token: admin })).body.users.find((u) => u.id === id);
+
+  // Assert
+  assert.equal(bySuperadmin.status, 403);
+  assert.match(bySuperadmin.body.error, /bound to one account/);
+  assert.equal(byAdmin.status, 403);
+  assert.equal(after.role, 'waiter');
+});
+
+test("the super admin's email is bound to the role: its name changes, its email does not", async () => {
+  // Arrange
+  const token = await api.login(SUPERADMIN.email, SUPERADMIN.password);
+
+  // Act
+  const renamed = await api.call('PATCH', '/auth/me', { token, body: { name: 'Sabih Uddin Meraj' } });
+  const newEmail = await api.call('PATCH', '/auth/me', { token, body: { email: 'someone.else@example.com', currentPassword: SUPERADMIN.password } });
+  const me = (await api.call('GET', '/auth/me', { token })).body.user;
+
+  // Assert
+  assert.equal(renamed.status, 200);
+  assert.equal(newEmail.status, 403);
+  assert.match(newEmail.body.error, /bound to the role/);
+  assert.equal(me.email, SUPERADMIN.email);
+  assert.equal(me.name, 'Sabih Uddin Meraj');
 });
