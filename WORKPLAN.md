@@ -223,7 +223,16 @@ Each branch was merged one at a time, gated, and released to `main` before the n
   - the API never assigns the role, and the super admin cannot change its email (`server/src/routes/auth.js`)
   - Postgres allows one (`uq_users_one_superadmin`, `server/schema/004_superadmin_role.sql`, `005_one_superadmin.sql`)
 - [x] Workforce follows the rank: admins see and change attendance and pay up to admin, the super admin everyone's
-- [x] `pnpm --dir server superadmin` binds it on a database under the persistence lock. Neon needs `--yes-really`, and a new account's password is typed twice with the input hidden.
+- [x] `pnpm --dir server superadmin` binds it on a database under the persistence lock. Neon needs `--yes-really`.
+  - Every bind takes a freshly typed password (twice, input hidden) and signs out the account's sessions.
+  - The script and `db:init` accept the `--` that `pnpm run` forwards.
+- [x] Code-review fixes (independent review):
+  - closed the pre-registered-email takeover
+  - the super admin's own row shows its badge
+  - the bound email is read-only on My account
+  - the API catalogue is updated
+  - DB tests refuse Neon
+  - the super admin's handler tests live in their module files
 - [x] Sprint 17 on the Scrum board: US17.1, US17.2
 - [x] CI repair (user approved). CI had been red on `development` and `main` since 99a1237:
   - the seed test now counts the seed's own users

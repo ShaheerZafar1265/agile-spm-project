@@ -868,7 +868,7 @@ export const SPRINTS: SprintBacklog[] = [
         text: 'As an operator, I want a guarded script that binds the super admin on a database, so that production has exactly one super admin without anyone editing tables by hand.',
         acceptanceCriteria: [
           'Given a database, when `pnpm --dir server superadmin` runs, then the account with the bound email becomes the only super admin and running instances reload it; Postgres refuses a second super admin.',
-          'Given a Neon database without --yes-really, then the script refuses before connecting; given an email with no account, then it asks for the password twice with the input hidden.',
+          'Given a Neon database without --yes-really, then the script refuses before connecting; on every bind it asks for a new password twice with the input hidden and signs out the account’s sessions, so a pre-registered account or a seed password never becomes the super admin’s credential.',
         ],
         evidence: { screen: 'Terminal: pnpm --dir server superadmin -- --yes-really', test: 'test-db/superadmin.test.js · test-db/schema.test.js' },
       },

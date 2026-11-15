@@ -695,8 +695,13 @@ The DDL is plain SQL, so `psql` works as well:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/001_schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/003_store_fields.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/004_superadmin_role.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/005_one_superadmin.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/002_seed.sql
 ```
+
+The seed comes last: it inserts the super admin row, which needs the enum value from `004` to be committed first.
 
 `ON_ERROR_STOP=1` makes `psql` stop at the first error instead of continuing with a
 half-applied schema.
@@ -711,9 +716,13 @@ pnpm --dir server superadmin -- --name="Sabih Uddin" --yes-really   # Neon
 pnpm --dir server superadmin -- --email=x@y.com --name="X Y"   # move the binding to another email
 ```
 
-- An existing account is promoted and keeps its password. For an email with no account, the script asks for a password twice (input hidden, checked against the password policy) **before** it takes the lock.
+- **Every bind sets a password typed at that moment**, whether it promotes an existing account or creates one:
+  - It is asked twice, with the input hidden, and checked against the password policy **before** the lock is taken. Piped stdin is accepted for automation.
+  - The bind also signs out all of the account's sessions.
+  - Registration has no email verification and the bound email is public. So an account someone created with that email beforehand, or the seed's public dev password (e.g. after `db:reset`), never becomes the super admin's credential.
+- The script prints which account it is about to promote (role, name, creation date). A new email needs `--name`.
 - The bind itself follows the persistence protocol (§8): `BEGIN`, `pg_advisory_xact_lock(727274)`, load the store, bind, `saveStore`, bump `state_version`, `COMMIT`. Running instances reload on their next request.
-- Any previous super admin becomes an admin. `uq_users_one_superadmin` makes a second super admin impossible at the database level.
+- Any previous super admin becomes an admin and is signed out. `uq_users_one_superadmin` makes a second super admin impossible at the database level.
 - `004_superadmin_role.sql` (`ALTER TYPE role ADD VALUE`) and `005_one_superadmin.sql` (the index) are separate files, because Postgres refuses to use a new enum value inside the transaction that added it.
 
 ---
