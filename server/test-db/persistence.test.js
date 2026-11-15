@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createPool } from '../src/data/db.js';
 import { issuedToken } from '../test/helpers.js';
+import { users as seedUsers } from '../src/data/store.js';
 
 const SERVER_DIR = fileURLToPath(new URL('..', import.meta.url));
 
@@ -85,7 +86,7 @@ test('the first request seeds the relational tables with the demo data', async (
   // Assert
   assert.equal(menu.status, 200);
   const users = await pool.query('SELECT count(*)::int AS n FROM users');
-  assert.equal(users.rows[0].n, 7);
+  assert.equal(users.rows[0].n, seedUsers.length, 'every seeded account is a row');
   const version = await pool.query("SELECT last_value::int AS v FROM sequences WHERE name = 'state_version'");
   assert.equal(version.rows[0].v, 1);
   await api.close();

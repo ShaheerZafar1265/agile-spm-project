@@ -140,7 +140,15 @@ The deployed web app reads `ROLE_META[u.role].tone`. A superadmin row reaching N
   - `staff.test.tsx` / account table: no Super admin option in the role picker; a superadmin gets the picker on admin rows
 - Full six-check CI gate, plus `test:db` against a local throwaway database.
 
+## CI repair (added during implementation)
+
+CI has been red on `development` and `main` since commit `99a1237` (the superuser accounts). Two DB tests fail on a pristine checkout:
+
+1. The first-request seed test hard-codes 7 users; the seed has 9. It now compares against the store seed.
+2. The store does not survive a save and load, because `altPasswordHashes` (every seeded account also accepted `password`) exists only in memory and is never written to Postgres. As a result the fallback vanished after any reload, and an old `password` kept working after a password change on a warm instance. **Removed, with the user's approval:**
+   - `store.js` no longer seeds alternate hashes, and `lib/passwords.js` checks only `passwordHash`.
+   - The superuser test now checks that `password` does not open a superuser account.
+
 ## Out of scope
 
-- The teammates' alternate-password fallback (`altPasswordHashes`, `lib/passwords.js`) is left as is. It is reported separately: it is not cleared on a password change, so an old demo password keeps working on a warm in-memory instance.
 - Email verification for registration.

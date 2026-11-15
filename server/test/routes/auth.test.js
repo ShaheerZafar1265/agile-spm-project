@@ -496,7 +496,7 @@ test('DELETE /auth/users/:id removes a staff account and unassigns them from tab
   assert.equal(afterDelete.waiterId, null, 'table waiter assignment was cleared');
 });
 
-test('superusers sign in (sabihuddin106@gmail.com as the super admin, shahanarain33@gmail.com as an admin) and reach admin endpoints', async () => {
+test('superusers sign in with their own password only (sabihuddin106@gmail.com as the super admin, shahanarain33@gmail.com as an admin) and reach admin endpoints', async () => {
   // Arrange
   const superusers = [
     { email: 'sabihuddin106@gmail.com', name: 'Sabih Uddin', role: 'superadmin' },
@@ -521,12 +521,11 @@ test('superusers sign in (sabihuddin106@gmail.com as the super admin, shahanarai
     assert.equal(usersList.status, 200);
     assert.ok(Array.isArray(usersList.body.users));
 
-    // Act — verify fallback password also works
-    const fallbackRes = await api.call('POST', '/auth/login', { body: { email, password: 'password' } });
+    // Act — the shared demo password does not open a superuser account
+    const demoPassword = await api.call('POST', '/auth/login', { body: { email, password: 'password' } });
 
     // Assert
-    assert.equal(fallbackRes.status, 200);
-    assert.equal(fallbackRes.body.user.role, role);
+    assert.equal(demoPassword.status, 401);
   }
 });
 
