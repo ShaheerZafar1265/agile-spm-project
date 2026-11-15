@@ -5,6 +5,7 @@ import {
   canAccess,
   canAdministerAccount,
   canManageAccount,
+  holdsRole,
   isStaff,
   ROLE_RANK,
   SECTION_ROLES,
@@ -217,6 +218,16 @@ describe('the super admin', () => {
     expect(canManageAccount(adminAccount, superadmin)).toBe(false);
     expect(canAdministerAccount(adminAccount, superadmin)).toBe(false);
     expect(canManageAccount(superadmin, superadmin)).toBe(false);
+  });
+
+  it('holdsRole mirrors the server: the super admin holds admin and its own role, nobody else inherits', () => {
+    // Act / Assert
+    expect(holdsRole('superadmin', ['admin'])).toBe(true);
+    expect(holdsRole('superadmin', ['superadmin'])).toBe(true);
+    expect(holdsRole('superadmin', ['manager'])).toBe(false);
+    expect(holdsRole('admin', ['superadmin'])).toBe(false);
+    expect(holdsRole('manager', ['manager', 'admin'])).toBe(true);
+    expect(holdsRole(null, ['admin'])).toBe(false);
   });
 
   it('is never offered as a role to assign', () => {
