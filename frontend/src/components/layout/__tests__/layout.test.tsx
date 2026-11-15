@@ -76,6 +76,17 @@ describe('DevShell', () => {
     expect(screen.getByRole('link', { name: 'Staff console' })).toBeInTheDocument();
   });
 
+  it('links the super admin to the staff console', () => {
+    // Arrange
+    vi.mocked(useAuth).mockReturnValue({ user: makeUser({ role: 'superadmin' }), logout: vi.fn() } as unknown as ReturnType<typeof useAuth>);
+
+    // Act
+    render(<DevShell>content</DevShell>);
+
+    // Assert
+    expect(screen.getByRole('link', { name: 'Staff console' })).toBeInTheDocument();
+  });
+
   it('hides the staff console link for a customer', () => {
     // Arrange
     vi.mocked(useAuth).mockReturnValue({ user: makeUser({ role: 'customer' }), logout: vi.fn() } as unknown as ReturnType<typeof useAuth>);
@@ -380,6 +391,25 @@ describe('StaffShell', () => {
     // Assert
     expect(screen.getByRole('link', { name: /Kitchen \(KDS\)/ })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Staff management' })).not.toBeInTheDocument();
+  });
+
+  it('gives the super admin every section an admin gets', () => {
+    // Arrange
+    const linksFor = (role: User['role']) => {
+      vi.mocked(useAuth).mockReturnValue({ user: makeUser({ role }), logout: vi.fn() } as unknown as ReturnType<typeof useAuth>);
+      const { unmount } = render(<StaffShell>content</StaffShell>);
+      const names = screen.getAllByRole('link').map((a) => a.textContent ?? '').sort();
+      unmount();
+      return names;
+    };
+
+    // Act
+    const asAdmin = linksFor('admin');
+    const asSuperadmin = linksFor('superadmin');
+
+    // Assert
+    expect(asAdmin).toContain('Staff management');
+    expect(asSuperadmin).toEqual(asAdmin);
   });
 
   it('shows a "My account" link for every staff role', () => {

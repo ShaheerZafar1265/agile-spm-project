@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ASSIGNABLE_ROLES,
   can,
   canAccess,
   canAdministerAccount,
@@ -63,6 +64,7 @@ describe('can.*', () => {
     ['deleteCustomers', ['manager', 'admin']],
     ['viewRecipes', ['chef', 'manager', 'admin']],
     ['approveStaff', ['manager', 'admin']],
+    ['approveManagers', ['admin']],
     ['scheduleShifts', ['manager', 'admin']],
     ['assignRoles', ['admin']],
     ['suspendStaff', ['admin']],
@@ -176,5 +178,47 @@ describe('canAdministerAccount', () => {
       }
     }
     expect(canAdministerAccount(null, acct('waiter'))).toBe(false);
+  });
+});
+
+describe('the super admin', () => {
+  it('opens every section an admin opens', () => {
+    // Arrange
+    const sections = Object.keys(SECTION_ROLES) as Section[];
+
+    // Act / Assert
+    for (const section of sections) expect(canAccess('superadmin', section)).toBe(canAccess('admin', section));
+  });
+
+  it('may take every action an admin may', () => {
+    // Arrange
+    const actions = Object.keys(can) as (keyof typeof can)[];
+
+    // Act / Assert
+    for (const action of actions) expect(can[action]('superadmin')).toBe(can[action]('admin'));
+  });
+
+  it('is staff and ranks above admin', () => {
+    // Act / Assert
+    expect(isStaff('superadmin')).toBe(true);
+    expect(ROLE_RANK.superadmin).toBeGreaterThan(ROLE_RANK.admin);
+  });
+
+  it('manages and administers admins, and no admin manages or administers the super admin', () => {
+    // Arrange
+    const superadmin = { id: 'usr_super', role: 'superadmin' as Role };
+    const adminAccount = { id: 'usr_admin', role: 'admin' as Role };
+
+    // Act / Assert
+    expect(canManageAccount(superadmin, adminAccount)).toBe(true);
+    expect(canAdministerAccount(superadmin, adminAccount)).toBe(true);
+    expect(canManageAccount(adminAccount, superadmin)).toBe(false);
+    expect(canAdministerAccount(adminAccount, superadmin)).toBe(false);
+    expect(canManageAccount(superadmin, superadmin)).toBe(false);
+  });
+
+  it('is never offered as a role to assign', () => {
+    // Act / Assert
+    expect(ASSIGNABLE_ROLES).toEqual(['customer', 'waiter', 'chef', 'manager', 'admin']);
   });
 });
