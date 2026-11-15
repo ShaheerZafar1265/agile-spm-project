@@ -7,6 +7,9 @@ import type { Role, StaffRole, User } from '@/types';
  */
 export const STAFF_ROLES: Role[] = ['waiter', 'chef', 'manager', 'admin', 'superadmin'];
 
+/** The super admin's email is bound to the role: PATCH /auth/me refuses to change it. */
+export const emailIsBound = (role: Role | null | undefined): boolean => role === 'superadmin';
+
 /** Roles the API can give an account. The super admin is bound to one account, never assigned. */
 export const ASSIGNABLE_ROLES: Role[] = ['customer', 'waiter', 'chef', 'manager', 'admin'];
 

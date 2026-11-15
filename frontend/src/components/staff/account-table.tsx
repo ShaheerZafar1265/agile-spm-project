@@ -116,7 +116,7 @@ export function AccountTable({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 pl-11 sm:justify-end sm:gap-2 sm:pl-0">
-          {canAssign && showAdminControls ? (
+          {canAssign && showAdminControls && ASSIGNABLE_ROLES.includes(u.role) ? (
             <select
               className="input w-auto"
               aria-label={`Role for ${u.name}`}
