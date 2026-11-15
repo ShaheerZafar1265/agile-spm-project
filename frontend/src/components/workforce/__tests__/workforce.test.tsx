@@ -379,7 +379,7 @@ describe('StaffOverviewTable', () => {
     const table = screen.getByRole('table');
 
     // Act
-    await user.click(screen.getByRole('button', { name: /View work/i }));
+    await user.click(within(table).getByRole('button', { name: 'Carlos Chef' }));
 
     // Assert
     expect(onSelect).toHaveBeenCalledWith('usr_chef');
