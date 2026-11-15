@@ -12,8 +12,7 @@ import { createPool } from '../src/data/db.js';
 import { ensureSchema } from '../src/data/relational/schema.js';
 import { saveStore, loadStore } from '../src/data/relational/index.js';
 import { snapshot, restore } from '../src/data/snapshot.js';
-
-const { bindInDatabase } = await import('../src/data/superadmin.js').catch(() => ({}));
+import { bindInDatabase } from '../src/data/superadmin.js';
 
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for the database tests.');
 const pool = createPool(process.env.DATABASE_URL);
