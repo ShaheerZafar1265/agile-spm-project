@@ -17,7 +17,11 @@
     "lint": "npm --prefix frontend run lint && npm --prefix server run lint",
     "test": "npm --prefix server test",
     "e2e": "playwright test -c e2e/playwright.config.ts",
-    "e2e:install": "playwright install chromium firefox webkit"
+    "e2e:install": "playwright install chromium firefox webkit",
+    "check:lockfiles": "node scripts/check-lockfiles.mjs",
+    "audit:prod": "node scripts/audit-gate.mjs",
+    "test:scripts": "node --test scripts/audit-policy.test.mjs",
+    "verify": "pnpm run check:lockfiles && pnpm run test:scripts && pnpm --dir server run lint && pnpm --dir server test && pnpm --dir frontend run lint && pnpm --dir frontend run test && pnpm --dir frontend exec tsc --noEmit && pnpm run audit:prod"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
