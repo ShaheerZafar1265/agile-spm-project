@@ -90,3 +90,30 @@ jobs:
             e2e/test-results/
             e2e/logs/
           retention-days: 14
+
+  # Dependency policy (bolt 009): lockfiles stay consistent and no unapproved high/critical
+  # production advisory ships. An advisory-service outage fails this job (exit 2); it never passes.
+  dependency-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lockfile policy (allowed lockfiles, npm lockfiles match their package.json)
+        run: pnpm run check:lockfiles
+
+      - name: Policy script tests
+        run: pnpm run test:scripts
+
+      - name: Production advisory gate (pnpm + both npm lockfiles)
+        run: pnpm run audit:prod
