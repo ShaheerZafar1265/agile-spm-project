@@ -14,14 +14,35 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 
 const DEMO_PASSWORD = 'password';
 
+/**
+ * Navigates, retrying if the browser aborts the navigation because the previous page was still
+ * settling (Firefox reports this as NS_BINDING_ABORTED).
+ */
+async function visit(page: Page, path: string) {
+  await expect(async () => {
+    await page.goto(path);
+  }).toPass({ timeout: 20_000 });
+}
+
 /** Opens a fresh, isolated browser session signed in as a seeded demo account. */
 async function signInAs(browser: Browser, email: string, landing: string | RegExp): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await page.goto('/login');
-  await page.locator('#email').fill(email);
-  await page.locator('#password').fill(DEMO_PASSWORD);
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await visit(page, '/login');
+
+  const emailField = page.locator('#email');
+  const passwordField = page.locator('#password');
+  const submit = page.getByRole('button', { name: 'Sign in', exact: true });
+  // The form is a controlled React form: text typed before hydration finishes is wiped when React
+  // takes over (slow engines or a busy machine hit this). Type until the values actually stick.
+  await expect(async () => {
+    await emailField.fill(email);
+    await passwordField.fill(DEMO_PASSWORD);
+    await expect(emailField).toHaveValue(email, { timeout: 1_000 });
+    await expect(passwordField).toHaveValue(DEMO_PASSWORD, { timeout: 1_000 });
+    await expect(submit).toBeEnabled({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+  await submit.click();
   await expect(page).toHaveURL(typeof landing === 'string' ? new RegExp(`${landing}$`) : landing);
   return page;
 }
@@ -34,7 +55,7 @@ test.describe.serial('critical path: order -> confirm -> kitchen', () => {
     const page = await signInAs(browser, 'customer@rest.test', '/');
 
     // Act: add the first available dish and check out for pickup, paying by cash
-    await page.goto('/menu');
+    await visit(page, '/menu');
     await page.waitForLoadState('networkidle'); // let the menu load and React hydrate before clicking
     await page.getByRole('button', { name: /^Add .+ to order$/ }).first().click();
     // A dish with modifiers opens an options dialog; a plain dish goes straight to the cart.
@@ -59,7 +80,7 @@ test.describe.serial('critical path: order -> confirm -> kitchen', () => {
     expect(orderNumber).not.toBe('');
 
     // Assert: it is listed for this customer (session cookie + proxy + API read)
-    await page.goto('/account#orders');
+    await visit(page, '/account#orders');
     await expect(page.getByRole('heading', { name: `Order #${orderNumber}` })).toBeVisible();
     await page.context().close();
   });
@@ -70,7 +91,7 @@ test.describe.serial('critical path: order -> confirm -> kitchen', () => {
     const page = await signInAs(browser, 'waiter@rest.test', /\/staff$/);
 
     // Act
-    await page.goto('/staff/orders');
+    await visit(page, '/staff/orders');
     const card = page.getByLabel(`Order #${orderNumber}`, { exact: true });
     await expect(card).toBeVisible();
     await card.getByRole('button', { name: 'Confirm', exact: true }).click();
@@ -86,7 +107,7 @@ test.describe.serial('critical path: order -> confirm -> kitchen', () => {
     const page = await signInAs(browser, 'chef@rest.test', /\/staff$/);
 
     // Act
-    await page.goto('/staff/kitchen');
+    await visit(page, '/staff/kitchen');
     const ticket = page.getByLabel(new RegExp(`^Order #${orderNumber}, queue position`));
     await expect(ticket).toBeVisible();
     await ticket.getByRole('button', { name: 'Start all' }).click();
@@ -101,7 +122,7 @@ test.describe.serial('critical path: order -> confirm -> kitchen', () => {
     const page = await signInAs(browser, 'customer@rest.test', '/');
 
     // Act
-    await page.goto('/staff/kitchen');
+    await visit(page, '/staff/kitchen');
 
     // Assert: sent back to the storefront, and the kitchen display never renders
     await expect(page).toHaveURL(/\/$/);
