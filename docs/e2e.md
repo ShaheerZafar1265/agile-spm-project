@@ -15,22 +15,25 @@ One order travels the whole way, then one access check:
 
 The journeys share one order, so they run in order in a single worker. Tests live in `e2e/tests/`.
 
+The whole suite runs in **three browser engines**, one after the other: Chromium, Firefox and WebKit
+(Safari's engine). Run one engine with `pnpm run e2e -- --project=firefox`.
+
 ## Running it locally
 
-One-time, if Chromium is not installed for Playwright 1.64.1:
+One-time, if the three browsers are not installed for Playwright 1.64.1:
 
 ```bash
 pnpm install
 pnpm run e2e:install
 ```
 
-Run the suite (about 2 minutes, most of it the production build):
+Run the suite (a few minutes: the production build, then three browser passes):
 
 ```bash
 pnpm run e2e
 ```
 
-Open the HTML report after a run:
+Open the HTML report after a run (the test names show which browser each result is from):
 
 ```bash
 pnpm exec playwright show-report e2e/playwright-report
@@ -40,7 +43,7 @@ pnpm exec playwright show-report e2e/playwright-report
 
 - Fixed ports that differ from the dev servers: API **4100**, web **3100**. Stop `pnpm dev` only if you want
   to keep its `frontend/.next` build: the suite runs `next build`, which rewrites that folder.
-- The API runs in memory from the seed data. `DATABASE_URL` is forced empty, so a developer's `server/.env`
+- The API runs in memory from the seed data, with `NODE_ENV=test` (a `Secure` session cookie would be rejected by WebKit over plain http). `DATABASE_URL` is forced empty, so a developer's `server/.env`
   can never point the suite at a real database. No production data is used.
 - The API signing secret is a throwaway test value set in `e2e/playwright.config.ts`.
 - The accounts are the public demo seeds listed in the README (`customer@`, `waiter@`, `chef@rest.test`).

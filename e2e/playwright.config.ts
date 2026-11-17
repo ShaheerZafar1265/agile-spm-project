@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Critical-path browser suite (bolt 001). It runs against PRODUCTION builds:
- *   - API:      `node src/index.js` with NODE_ENV=production, in memory (no database)
+ *   - API:      `node src/index.js` in memory (no database), NODE_ENV=test so the cookie works in WebKit
  *   - Frontend: `next build` + `next start`, with /api/* rewritten to the API above
  * Ports are fixed and different from the dev servers (4000/3000), so a running
  * `pnpm dev` never collides with, or is reused by, the suite. All data is the
@@ -41,7 +41,12 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'off',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // The same journeys run in each engine, one after the other, against the same two servers.
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
   webServer: [
     {
       command: `pnpm --dir server start ${toLog('api.log')}`,
@@ -51,7 +56,11 @@ export default defineConfig({
       timeout: 60_000,
       env: {
         PORT: String(API_PORT),
-        NODE_ENV: 'production',
+        // Not 'production' on purpose: that makes the session cookie `Secure`, and WebKit (Safari's
+        // engine) refuses Secure cookies over plain http://localhost, so nobody could sign in.
+        // Chromium and Firefox accept them, which is why only the WebKit pass exposed this.
+        // The frontend below is still a real production build; only this throwaway API differs.
+        NODE_ENV: 'test',
         // Test-only signing secret for the throwaway in-memory API. Not used anywhere else.
         JWT_SECRET: 'e2e-only-secret-not-used-outside-the-test-run',
         // Empty on purpose: dotenv never overrides it, so a developer's server/.env cannot

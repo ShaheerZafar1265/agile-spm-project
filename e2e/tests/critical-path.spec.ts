@@ -35,13 +35,18 @@ test.describe.serial('critical path: order -> confirm -> kitchen', () => {
 
     // Act: add the first available dish and check out for pickup, paying by cash
     await page.goto('/menu');
+    await page.waitForLoadState('networkidle'); // let the menu load and React hydrate before clicking
     await page.getByRole('button', { name: /^Add .+ to order$/ }).first().click();
+    // A dish with modifiers opens an options dialog; a plain dish goes straight to the cart.
+    // Wait for whichever happens, instead of guessing how fast the browser is.
     const options = page.getByRole('dialog');
-    if (await options.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      // The dish has modifiers: accept the defaults.
+    const cart = page.getByRole('button', { name: /^View your order/ });
+    await expect(options.or(cart)).toBeVisible();
+    if (await options.isVisible()) {
+      // Accept the default options.
       await options.getByRole('button').last().click();
     }
-    await page.getByRole('button', { name: /^View your order/ }).click();
+    await cart.click();
     await page.getByRole('button', { name: /^Checkout/ }).click();
     await page.getByRole('radio', { name: /Pickup/ }).click();
     await page.getByRole('radio', { name: /Cash/ }).click();
