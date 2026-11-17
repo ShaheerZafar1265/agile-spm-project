@@ -139,12 +139,16 @@ Two Vercel projects, deployed with the Vercel CLI from their own folders:
 | `plate-and-flame-api` | `server/`   | `DATABASE_URL` (Neon pooled URL), `JWT_SECRET` |
 | `plate-and-flame-web` | `frontend/` | `API_URL` = the API's URL (used by the `/api/*` rewrite at build time) |
 
+Set the API project's `DATABASE_URL` to a remote PostgreSQL database and `JWT_SECRET` to a unique random value of at least 32 characters. Set the web project's `API_URL` to the API origin, including the scheme but no path (for example, `https://plate-and-flame-api.vercel.app`). Production startup/build rejects missing or malformed settings, localhost destinations and non-HTTPS web API origins; validation errors never print configured values. Local development can omit `API_URL` to use `http://localhost:4000`, and can leave `DATABASE_URL` empty to use the in-memory store.
+
 Optional for the web app: `NEXT_PUBLIC_WORKFORCE_MOCK=true` runs My work and the Workforce hub on in-browser demo data instead of the API (the unit tests do this).
 
 ```bash
 cd server && vercel deploy --prod      # API
 cd frontend && vercel deploy --prod    # web
 ```
+
+Before promoting a deployment, verify both projects with their production environment variables configured: `pnpm --dir server start` must start with the remote database and strong JWT secret, and `pnpm --dir frontend build` must complete with the HTTPS API origin. Then confirm `https://<web-host>/api/health` returns the API status page and `https://<api-host>/api/health?format=json` returns JSON.
 
 ### Databases: local PostgreSQL in dev, Neon in production
 
