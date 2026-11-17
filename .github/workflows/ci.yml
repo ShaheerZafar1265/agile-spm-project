@@ -54,3 +54,39 @@ jobs:
 
       - name: Web — production build
         run: pnpm --dir frontend run build
+
+  # Critical-path browser suite (bolt 001): customer order -> waiter confirm -> chef kitchen,
+  # against production builds, on disposable in-memory data. Kept in its own job so the
+  # unit/acceptance gate above stays fast; failure artifacts are uploaded for diagnosis.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E - critical-path journeys
+        run: pnpm run e2e
+
+      - name: Upload failure artifacts (report, traces, screenshots, server logs)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+            e2e/logs/
+          retention-days: 14
