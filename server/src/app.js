@@ -20,6 +20,8 @@ import healthRoutes from './routes/health.js';
 import { PROBE_HEADER } from './lib/health-probe.js';
 import { authenticate, optionalAuth } from './middleware/auth.js';
 import { rateLimit, limitPost } from './middleware/rate-limit.js';
+import { createRateLimitStore } from './lib/rate-limit-store.js';
+import { getPool, ensureSchema } from './data/db.js';
 import { persistState } from './data/persist.js';
 import { EMAIL_MAX, hasUnsafeKeys, isPlainObject } from './lib/validate.js';
 import { signingSecret } from './lib/jwt.js';
@@ -27,9 +29,13 @@ import { protectCookieWrites } from './lib/session-cookie.js';
 
 /**
  * `persistence` keeps the store in Postgres (on by default when DATABASE_URL is set);
- * `rateLimits` throttles auth endpoints and public forms.
+ * `rateLimits` throttles auth endpoints and public forms, counting in a table every instance shares when
+ * the API persists to a database (RATE_LIMIT_STORE overrides; see lib/rate-limit-store.js) and in process
+ * memory otherwise; `limiterStore` injects a store (tests).
  */
-export function createApp({ logging = true, persistence = Boolean(process.env.DATABASE_URL), rateLimits = true } = {}) {
+export function createApp({
+  logging = true, persistence = Boolean(process.env.DATABASE_URL), rateLimits = true, limiterStore,
+} = {}) {
   signingSecret();
   const app = express();
   // Behind Vercel's proxy the client address is in X-Forwarded-For. Elsewhere the
@@ -56,14 +62,16 @@ export function createApp({ logging = true, persistence = Boolean(process.env.DA
     next();
   }, protectCookieWrites);
 
+  // One store for every limit below. Each limit has a fixed name so all instances count the same one.
+  const store = rateLimits ? (limiterStore ?? createRateLimitStore({ persistence, getPool, ensureSchema })) : undefined;
   if (rateLimits) {
     const windowMs = 15 * 60_000;
     const emailKey = (req) => typeof req.body?.email === 'string' && req.body.email.length <= EMAIL_MAX
       ? req.body.email.trim().toLowerCase() : null;
     app.use('/api/auth',
-      limitPost('/login', rateLimit({ limit: 30, windowMs, exemptStaff: false })),
-      limitPost('/login', rateLimit({ limit: 5, windowMs, keyFor: emailKey, failuresOnly: true, exemptStaff: false })),
-      limitPost('/register', rateLimit({ limit: 10, windowMs, exemptStaff: false })),
+      limitPost('/login', rateLimit({ limit: 30, windowMs, exemptStaff: false, store, name: 'auth-login-ip' })),
+      limitPost('/login', rateLimit({ limit: 5, windowMs, keyFor: emailKey, failuresOnly: true, exemptStaff: false, store, name: 'auth-login-email' })),
+      limitPost('/register', rateLimit({ limit: 10, windowMs, exemptStaff: false, store, name: 'auth-register-ip' })),
     );
   }
 
@@ -79,10 +87,10 @@ export function createApp({ logging = true, persistence = Boolean(process.env.DA
   app.use('/api/tables', optionalAuth, tableRoutes);
   // Public forms notify staff, so guests get a per-IP limit (signed-in staff are exempt).
   const bookingLimit = rateLimits
-    ? limitPost('/', rateLimit({ limit: 5, windowMs: 10 * 60_000, message: 'Too many booking requests. Please try again in a few minutes.' }))
+    ? limitPost('/', rateLimit({ limit: 5, windowMs: 10 * 60_000, message: 'Too many booking requests. Please try again in a few minutes.', store, name: 'booking-ip' }))
     : (req, res, next) => next();
   const applicationLimit = rateLimits
-    ? limitPost('/applications', rateLimit({ limit: 3, windowMs: 60 * 60_000, message: 'Too many applications from this connection. Please try again later.' }))
+    ? limitPost('/applications', rateLimit({ limit: 3, windowMs: 60 * 60_000, message: 'Too many applications from this connection. Please try again later.', store, name: 'application-ip' }))
     : (req, res, next) => next();
   app.use('/api/reservations', optionalAuth, bookingLimit, reservationRoutes);
   app.use('/api/staff', optionalAuth, applicationLimit, staffRoutes);

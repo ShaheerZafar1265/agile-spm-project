@@ -15,7 +15,7 @@ requireTestDatabase();
 const pool = createPool(process.env.DATABASE_URL);
 after(() => pool.end());
 
-test('ensureSchema creates all 28 tables and the store-only columns, idempotently', async () => {
+test('ensureSchema creates all 29 tables and the store-only columns, idempotently', async () => {
   // Arrange
   await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
 
@@ -27,7 +27,7 @@ test('ensureSchema creates all 28 tables and the store-only columns, idempotentl
   const { rows } = await pool.query(
     "SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'",
   );
-  assert.equal(rows[0].n, 28);
+  assert.equal(rows[0].n, 29);
   const col = await pool.query(
     "SELECT 1 FROM information_schema.columns WHERE table_name = 'purchase_order_lines' AND column_name = 'supplier'",
   );
