@@ -11,6 +11,7 @@ import {
 import { requireRole } from '../middleware/auth.js';
 import { text, number, bool, stringList, list } from '../lib/validate.js';
 import { hasRole } from '../lib/hierarchy.js';
+import { countBy } from '../lib/collections.js';
 
 const router = Router();
 
@@ -110,7 +111,8 @@ router.get('/', (req, res) => {
 /** GET /api/menu/items — flat item list. */
 router.get('/items', (req, res) => {
   const withRecipe = canSeeRecipes(req);
-  const items = isStaff(req) ? menuItems : menuItems.filter((m) => categories.some((c) => c.id === m.categoryId && c.active));
+  const activeCategories = new Set(categories.filter((c) => c.active).map((c) => c.id));
+  const items = isStaff(req) ? menuItems : menuItems.filter((m) => activeCategories.has(m.categoryId));
   res.json({ items: items.map((m) => serializeItem(m, withRecipe)) });
 });
 
@@ -231,11 +233,12 @@ router.delete('/items/:id', manageMenu, (req, res) => {
 
 /** GET /api/menu/categories */
 router.get('/categories', (req, res) => {
+  const itemCounts = countBy(menuItems, (m) => m.categoryId);
   res.json({
     categories: categories
       .slice()
       .sort((a, b) => a.sort - b.sort)
-      .map((c) => ({ ...c, itemCount: menuItems.filter((m) => m.categoryId === c.id).length })),
+      .map((c) => ({ ...c, itemCount: itemCounts.get(c.id) ?? 0 })),
   });
 });
 
