@@ -54,6 +54,63 @@ test('the role enum has the super admin, and the database allows at most one sup
   assert.equal(second.constraint, 'uq_users_one_superadmin');
 });
 
+test('attendance tables enforce one open session/break and valid time ranges', async () => {
+  await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+  await ensureSchema(pool);
+  const { rows: indexes } = await pool.query(
+    "SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname = ANY($1::text[])",
+    [['uq_attendance_sessions_one_open', 'uq_attendance_breaks_one_open']],
+  );
+  assert.deepEqual(indexes.map((row) => row.indexname).sort(), [
+    'uq_attendance_breaks_one_open',
+    'uq_attendance_sessions_one_open',
+  ]);
+
+  const { rows: userRows } = await pool.query(
+    "INSERT INTO users (name, email, role, password_hash) VALUES ('Clock Test', 'clock-test@example.com', 'waiter', 'test') RETURNING id",
+  );
+  const userId = userRows[0].id;
+  const { rows: sessions } = await pool.query(
+    `INSERT INTO attendance_sessions (user_id, date, clock_in)
+     VALUES ($1, '2026-01-01', '2026-01-01T12:00:00Z') RETURNING id, clock_in`,
+    [userId],
+  );
+  const sessionId = sessions[0].id;
+
+  const duplicateSession = await pool.query(
+    `INSERT INTO attendance_sessions (user_id, date, clock_in)
+     VALUES ($1, '2026-01-01', '2026-01-01T13:00:00Z')`,
+    [userId],
+  ).catch((error) => error);
+  assert.equal(duplicateSession.code, '23505');
+  assert.equal(duplicateSession.constraint, 'uq_attendance_sessions_one_open');
+
+  await pool.query(
+    `INSERT INTO attendance_breaks (session_id, "start") VALUES ($1, '2026-01-01T12:30:00Z')`,
+    [sessionId],
+  );
+  const duplicateBreak = await pool.query(
+    `INSERT INTO attendance_breaks (session_id, "start") VALUES ($1, '2026-01-01T12:45:00Z')`,
+    [sessionId],
+  ).catch((error) => error);
+  assert.equal(duplicateBreak.code, '23505');
+  assert.equal(duplicateBreak.constraint, 'uq_attendance_breaks_one_open');
+
+  const invalidSession = await pool.query(
+    'UPDATE attendance_sessions SET clock_out = clock_in WHERE id = $1',
+    [sessionId],
+  ).catch((error) => error);
+  assert.equal(invalidSession.code, '23514');
+  assert.equal(invalidSession.constraint, 'ck_attendance_sessions_clock_order');
+
+  const invalidBreak = await pool.query(
+    'UPDATE attendance_breaks SET "end" = "start" WHERE session_id = $1',
+    [sessionId],
+  ).catch((error) => error);
+  assert.equal(invalidBreak.code, '23514');
+  assert.equal(invalidBreak.constraint, 'ck_attendance_breaks_time_order');
+});
+
 test('db:init applies every schema file before the seed, so the seeded super admin loads', async () => {
   // Arrange
   await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
