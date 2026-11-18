@@ -82,9 +82,10 @@ request: <reason>`. The log never contains the IP address or email being counted
 
 ## Production without a shared store
 
-Production already refuses to start without a remote `DATABASE_URL` (`server/src/lib/production-config.js`),
-so it always gets the shared store. The only way to run production on `MemoryStore` is to ask for it with
-`RATE_LIMIT_STORE=memory`. That is allowed, but never silent: it logs once at startup:
+A production API with a `DATABASE_URL` always gets the shared store. One without it (the startup check in
+`server/src/lib/production-config.js` only warns about that unless `STRICT_PRODUCTION_CONFIG=1`), or one started
+with `RATE_LIMIT_STORE=memory`, runs on `MemoryStore`. That is allowed, so a misconfiguration cannot take the
+site down, but it is never silent: it logs once at startup:
 
 > [rate-limit] production is using process-local rate limit counters: each API instance counts on its own ...
 
