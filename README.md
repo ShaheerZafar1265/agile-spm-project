@@ -114,7 +114,7 @@ Accounts follow a rank, superadmin > admin > manager > chef = waiter. You can ma
 
 The web app uses a 12-hour HttpOnly session cookie through the same-origin `/api` proxy. Production uses a Secure cookie and requires a randomly generated `JWT_SECRET`. Browser writes send `X-Requested-With: RestaurantOps`, and login, registration and password changes return the user while setting the cookie. Users migrating from local storage sign in again. Signing out revokes all sessions for the account. Suspension, password changes and resets also revoke existing sessions.
 
-Login allows 30 attempts per IP and five failed attempts per normalized email in 15 minutes. Registration allows 10 attempts per IP in the same window. The API returns `429` with `Retry-After` when throttled. Counters are per API instance and reset when the instance restarts. Use dedicated credentials in any deployment with real data, since the demo seeds include known passwords.
+Login allows 30 attempts per IP and five failed attempts per normalized email in 15 minutes. Registration allows 10 attempts per IP in the same window. The API returns `429` with `Retry-After` when throttled. When the API runs against a database (`DATABASE_URL`, as in production) the counters live in a shared `rate_limits` table, so every API instance counts against the same quota and a restart does not reset them; without a database (local development, tests) they are kept in process memory. If the shared counters cannot be reached, sign-in, registration and the public forms answer `503` with `Retry-After: 5` and the outage is logged, instead of going unlimited. A production API with no database logs a warning at startup that its limits are not shared. Details: `docs/rate-limiting.md`. Use dedicated credentials in any deployment with real data, since the demo seeds include known passwords.
 
 Every staff member clocks their own attendance and sees their own hours and pay estimate (`/api/attendance`, `/api/workforce`); managers see waiters' and chefs' attendance but never wages or pay, admins see and edit the wages, bonuses and pay of everyone up to admin, the super admin everyone's, and the "who's working now" board shows waiters to waiters, chefs to chefs, managers plus waiters and chefs to managers, all staff up to admin to admins, and everyone to the super admin.
 
@@ -150,7 +150,7 @@ cd frontend && vercel deploy --prod    # web
 
 ### Databases: local PostgreSQL in dev, Neon in production
 
-The app stores its data in a relational PostgreSQL schema (28 tables with foreign keys, constraints and indexes), defined in `server/schema/001_schema.sql` and seeded by `server/schema/002_seed.sql`. The same DDL runs in both environments, so the local database and the Neon production database have an identical shape. The full plan is in [DB_PLAN.md](DB_PLAN.md).
+The app stores its data in a relational PostgreSQL schema (29 tables with foreign keys, constraints and indexes), defined in `server/schema/001_schema.sql` and seeded by `server/schema/002_seed.sql`. The same DDL runs in both environments, so the local database and the Neon production database have an identical shape. The full plan is in [DB_PLAN.md](DB_PLAN.md).
 
 The server picks its Postgres driver from `DATABASE_URL` (`server/src/data/db.js`): a `*.neon.tech` host uses Neon's serverless driver (WebSockets), any other host uses the standard `pg` driver (TCP). So each environment only sets its own URL:
 
@@ -198,7 +198,7 @@ The catalogue is read from the Express routers at runtime, so a new route shows 
 
 ## Design decisions
 
-- **Relational PostgreSQL schema.** The app uses a proper relational schema (28 tables, proper FKs, indexes) that runs identically on local PostgreSQL and Neon. The schema is defined in `server/schema/001_schema.sql` and seeded by `002_seed.sql`. The init script (`pnpm --dir server db:init`) handles both environments. Every API request reads and writes these tables; the old `app_state` blob is no longer used.
+- **Relational PostgreSQL schema.** The app uses a proper relational schema (29 tables, proper FKs, indexes) that runs identically on local PostgreSQL and Neon. The schema is defined in `server/schema/001_schema.sql` and seeded by `002_seed.sql`. The init script (`pnpm --dir server db:init`) handles both environments. Every API request reads and writes these tables; the old `app_state` blob is no longer used.
 - **The server is the source of truth for money.** Prices, modifier deltas, tax, service charge, points and splits are all computed server-side in integer cents. Clients only send menu item IDs and selected options.
 - **One permissions map.** `frontend/src/lib/permissions.ts` mirrors the API's `requireRole` guards, so the UI never offers an action the API would refuse.
 - **Live updates via polling** every 5–10 s for orders, the KDS, the floor plan, billing and notifications. This meets "within a few seconds" without a websocket server.
