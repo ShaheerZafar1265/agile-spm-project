@@ -14,7 +14,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../src/lib/passwords.js';
 import { createPool, isNeonUrl } from '../src/data/db.js';
 import { ensureSchema as applySchema } from '../src/data/relational/schema.js';
 import { STAFF_ROLES } from '../src/data/store.js';
@@ -113,7 +113,7 @@ async function main() {
   if (isNeonUrl(url)) log('target is a Neon database (shared, live data)');
 
   const pool = createPool(url, { max: 1, connectionTimeoutMillis: 30_000, query_timeout: 300_000 });
-  const passwordHash = bcrypt.hashSync(PASSWORD, 10);
+  const passwordHash = hashPassword(PASSWORD);
   let created = 0;
   let updated = 0;
   let profiles = 0;

@@ -7,7 +7,7 @@
  * orders, tonight's bookings), 60 days of closed history for analytics, 90
  * days of shifts and attendance, and upcoming shifts.
  */
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../lib/passwords.js';
 import { priceSelection, computeTotals } from '../lib/order-math.js';
 import { MINUTE, localDate, localTime, addDays, iso } from '../lib/time.js';
 import { seedHistory } from './seed-history.js';
@@ -58,8 +58,8 @@ export const TIME_SLOTS = [
 
 /* ------------------------------------------------------------------ users */
 
-const DEMO_PASSWORD_HASH = bcrypt.hashSync('password', 10);
-const SUPERUSER_PASSWORD_HASH = bcrypt.hashSync('Admin@123456', 10);
+const DEMO_PASSWORD_HASH = hashPassword('password');
+const SUPERUSER_PASSWORD_HASH = hashPassword('Admin@123456');
 
 const seedUsers = [
   { id: 'usr_admin', name: 'Alex Admin', email: 'admin@rest.test', role: 'admin' },
@@ -105,7 +105,7 @@ export function createUser({ name, email, password, role = 'customer', mustChang
     name: String(name).trim(),
     email: String(email).toLowerCase().trim(),
     phone: '',
-    passwordHash: bcrypt.hashSync(password, 10),
+    passwordHash: hashPassword(password),
     role,
     active: true,
     mustChangePassword,
