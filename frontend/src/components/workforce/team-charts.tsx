@@ -8,7 +8,7 @@ import { DataTableToggle } from '@/components/analytics/analytics-card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ROLE_META, STAFF_ROLE_ORDER } from '@/components/staff/role-meta';
 import { hoursText } from '@/components/workforce/workforce-format';
-import { WORKFORCE_CHART_COLORS, chartAnimation } from '@/components/workforce/chart-tokens';
+import { chartAnimation } from '@/components/workforce/chart-motion';
 
 const toHours = (m: number) => Math.round((m / 60) * 10) / 10;
 
@@ -46,7 +46,7 @@ export function HoursByRole({ rows }: { rows: WorkforceOverviewRow[] }) {
       tooltip: { ...TOOLTIP_STYLE, callbacks: { label: (i) => ` ${i.dataset.label}: ${i.raw as number} h` } },
     },
     scales: {
-      x: { beginAtZero: true, grid: { color: CHART_COLORS.grid }, border: { display: false }, title: { display: true, text: 'Hours', color: WORKFORCE_CHART_COLORS.axisTitle } },
+      x: { beginAtZero: true, grid: { color: CHART_COLORS.grid }, border: { display: false }, title: { display: true, text: 'Hours', color: CHART_COLORS.axisTitle } },
       y: { grid: { display: false }, border: { color: CHART_COLORS.axis } },
     },
   };
@@ -99,8 +99,8 @@ export function LatenessTrend({ days }: { days: SeriesPoint[] }) {
       {
         label: 'Late arrivals',
         data: days.map((d) => d.lateCount),
-        borderColor: WORKFORCE_CHART_COLORS.danger,
-        backgroundColor: WORKFORCE_CHART_COLORS.danger,
+        borderColor: CHART_COLORS.danger,
+        backgroundColor: CHART_COLORS.danger,
         borderWidth: 2,
         pointRadius: days.map((d) => (d.lateCount > 0 ? 3 : 0)),
         tension: 0.25,

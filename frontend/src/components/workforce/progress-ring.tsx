@@ -1,13 +1,13 @@
 import type { StaffAnalytics, WorkSummary } from '@/types';
 import { money } from '@/lib/format';
 import { hoursText, projectedPay, ratePct } from '@/components/workforce/workforce-format';
-import { WORKFORCE_CHART_COLORS } from '@/components/workforce/chart-tokens';
+import { CHART_COLORS } from '@/components/analytics/chart-colors';
 
 type RingTone = 'neutral' | 'warning';
 
 const ARC: Record<RingTone, string> = {
-  neutral: WORKFORCE_CHART_COLORS.label,
-  warning: WORKFORCE_CHART_COLORS.warning, // below target
+  neutral: CHART_COLORS.label,
+  warning: CHART_COLORS.warning, // below target
 };
 
 /**
@@ -37,7 +37,7 @@ export function ProgressRing({
   const fraction = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={ariaLabel} className="shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={WORKFORCE_CHART_COLORS.track} strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={CHART_COLORS.track} strokeWidth={stroke} />
       <circle
         cx={size / 2}
         cy={size / 2}

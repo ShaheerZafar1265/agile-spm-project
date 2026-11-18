@@ -8,7 +8,7 @@ import { CHART_COLORS, TOOLTIP_STYLE } from '@/components/analytics/chart-setup'
 import { DataTableToggle, Segmented } from '@/components/analytics/analytics-card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { hoursText } from '@/components/workforce/workforce-format';
-import { WORKFORCE_CHART_COLORS, chartAnimation } from '@/components/workforce/chart-tokens';
+import { chartAnimation } from '@/components/workforce/chart-motion';
 
 export type ChartMode = 'day' | 'week' | 'month' | 'hour';
 
@@ -17,8 +17,8 @@ type Mixed = 'bar' | 'line';
 const MODE_LABEL: Record<ChartMode, string> = { day: 'Day', week: 'Week', month: 'Month', hour: 'Hour of day' };
 
 /** Break bars sit in a warm neutral so they read as "time off the clock", not as a state. */
-const BREAK_COLOR = WORKFORCE_CHART_COLORS.breakTime;
-const LATE_COLOR = WORKFORCE_CHART_COLORS.danger; // late is a state
+const BREAK_COLOR = CHART_COLORS.breakTime;
+const LATE_COLOR = CHART_COLORS.danger; // late is a state
 
 const toHours = (m: number) => Math.round((m / 60) * 10) / 10;
 
@@ -133,7 +133,7 @@ export function WorkCharts({
         grid: { color: CHART_COLORS.grid },
         border: { display: false },
         ticks: { maxTicksLimit: 6 },
-        title: { display: true, text: 'Hours', color: WORKFORCE_CHART_COLORS.axisTitle },
+        title: { display: true, text: 'Hours', color: CHART_COLORS.axisTitle },
       },
       y1: {
         position: 'right',
@@ -141,7 +141,7 @@ export function WorkCharts({
         grid: { display: false },
         border: { display: false },
         ticks: { precision: 0, maxTicksLimit: 4 },
-        title: { display: true, text: 'Late', color: WORKFORCE_CHART_COLORS.axisTitle },
+        title: { display: true, text: 'Late', color: CHART_COLORS.axisTitle },
       },
     },
   };
