@@ -4,10 +4,10 @@ import { userDirectory, applications, shifts, orders, STAFF_ROLES, createUser, f
 import { requireRole } from '../middleware/auth.js';
 import { notify } from '../lib/notify.js';
 import { MINUTE, addDays, combine, isValidDate, isValidTime, localDate, iso } from '../lib/time.js';
-import { toCents, fromCents } from '../lib/order-math.js';
 import { generateTempPassword } from '../lib/password-policy.js';
 import { personName, email as readEmail, phone as readPhone, text, oneOf, id } from '../lib/validate.js';
 import { hasRole } from '../lib/hierarchy.js';
+import { staffPerformance } from '../lib/staff-performance.js';
 
 const router = Router();
 const managerRoles = requireRole('manager', 'admin');
@@ -196,32 +196,7 @@ router.get('/performance', managerRoles, (req, res) => {
   });
 
   const staff = userDirectory.all.filter((u) => STAFF_ROLES.includes(u.role));
-  const rows = staff.map((u) => {
-    const taken = inRange.filter((o) => o.waiterId === u.id);
-    const settled = taken.filter((o) => o.paymentStatus !== 'unpaid');
-    const prepared = inRange.flatMap((o) => o.items.filter((i) => i.preparedBy === u.id).map((i) => ({ i, o })));
-    const prepTimes = prepared
-      .filter(({ i, o }) => i.readyAt && o.confirmedAt)
-      .map(({ i, o }) => (new Date(i.readyAt) - new Date(o.confirmedAt)) / MINUTE);
-    const myShifts = shifts.filter((s) => s.userId === u.id && s.date >= from && s.date <= to);
-    const completed = myShifts.filter((s) => s.status === 'completed');
-
-    return {
-      userId: u.id,
-      name: u.name,
-      role: u.role,
-      active: u.active,
-      ordersTaken: taken.length,
-      ordersServed: inRange.filter((o) => o.servedBy === u.id).length,
-      revenueHandled: fromCents(settled.reduce((s, o) => s + toCents(o.total) - toCents(o.refund?.amount ?? 0), 0)),
-      tips: fromCents(settled.reduce((s, o) => s + toCents(o.tip), 0)),
-      itemsPrepared: prepared.reduce((s, { i }) => s + i.qty, 0),
-      avgPrepMinutes: prepTimes.length ? Math.round(prepTimes.reduce((s, m) => s + m, 0) / prepTimes.length) : null,
-      shiftsCompleted: completed.length,
-      shiftsMissed: myShifts.filter((s) => s.status === 'missed').length,
-      hoursWorked: Math.round(completed.reduce((s, x) => s + shiftHours(x), 0) * 10) / 10,
-    };
-  });
+  const rows = staffPerformance({ staff, orders: inRange, shifts, from, to });
 
   res.json({ from, to, staff: rows });
 });
