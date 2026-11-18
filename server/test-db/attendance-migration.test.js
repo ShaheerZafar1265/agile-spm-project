@@ -46,9 +46,11 @@ test('an already migrated database is not locked by the schema being applied aga
     await reader.query('SELECT 1 FROM attendance_sessions LIMIT 1');
     await migrator.query("SET lock_timeout = '1500ms'");
 
-    // Control: an exclusive lock on that table really would have to wait (so this test can detect one)
+    // Control: an exclusive lock on that table really would have to wait (so this test can detect one).
+    // LOCK TABLE is only allowed inside a transaction block.
+    await migrator.query('BEGIN');
     await assert.rejects(migrator.query('LOCK TABLE attendance_sessions IN ACCESS EXCLUSIVE MODE'), /lock timeout/);
-    await migrator.query('ROLLBACK').catch(() => {});
+    await migrator.query('ROLLBACK');
 
     // Act / Assert: applying the whole schema again does not wait
     await ensureSchema(migrator);
