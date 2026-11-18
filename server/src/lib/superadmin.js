@@ -3,7 +3,7 @@
  * store. scripts/superadmin.js runs this on a database (data/superadmin.js);
  * the API itself never assigns the role.
  */
-import bcrypt from 'bcryptjs';
+import { hashPassword } from './passwords.js';
 import { users, findUserByEmail, createUser, sanitizeUser } from '../data/store.js';
 import { email as readEmail, personName } from './validate.js';
 import { passwordError } from './password-policy.js';
@@ -35,7 +35,7 @@ export function bindSuperadmin({ email, name, password } = {}) {
 
   const user = existing ?? createUser({ name: fullName, email: address, password, role: 'superadmin' });
   if (existing) {
-    user.passwordHash = bcrypt.hashSync(password, 10);
+    user.passwordHash = hashPassword(password);
     user.tokenVersion = (user.tokenVersion ?? 0) + 1;
   }
   user.role = 'superadmin';

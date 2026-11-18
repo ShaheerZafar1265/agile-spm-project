@@ -1,19 +1,16 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import {
-  users,
+  userDirectory,
   findUserByEmail,
   findUserById,
-  createUser,
   sanitizeUser,
-  customers,
-  tables,
-  nextId,
   ROLES,
 } from '../data/store.js';
+import { accounts } from '../domain/accounts.js';
+import { AccountError } from '../domain/account-service.js';
 import { authenticate, authenticateForAccountRecovery, revokeSession, requireRole, requireAdmin } from '../middleware/auth.js';
 import { clearSession, protectSessionIssuance, setSession } from '../lib/session-cookie.js';
-import { passwordMatches } from '../lib/passwords.js';
+import { hashPassword, needsRehash, passwordMatches } from '../lib/passwords.js';
 import { ASSIGNABLE_ROLES, canManage, BELOW_RANK_ERROR } from '../lib/hierarchy.js';
 import { passwordError, generateTempPassword, PASSWORD_MAX } from '../lib/password-policy.js';
 import { personName, email as readEmail, phone as readPhone, bool, oneOf, EMAIL_MAX } from '../lib/validate.js';
@@ -33,25 +30,15 @@ router.post('/register', protectSessionIssuance, (req, res) => {
   if (typeof password !== 'string') return res.status(400).json({ error: 'Password must be text.' });
   const weak = passwordError(password, { email, name });
   if (weak) return res.status(400).json({ error: weak });
-  if (findUserByEmail(email)) {
-    return res.status(409).json({ error: 'An account with that email already exists.' });
+
+  // A new signup gets a linked customer profile immediately (self-service); the account service does both.
+  let user;
+  try {
+    user = accounts.registerCustomer({ name, email, password });
+  } catch (err) {
+    if (err instanceof AccountError && err.code === 'EMAIL_TAKEN') return res.status(409).json({ error: err.message });
+    throw err;
   }
-
-  const user = createUser({ name, email, password, role: 'customer' });
-
-  // A new signup gets a linked customer profile immediately (self-service).
-  customers.push({
-    id: nextId('cus'),
-    userId: user.id,
-    name: user.name,
-    email: user.email,
-    phone: '',
-    type: 'online',
-    loyaltyPoints: 0,
-    preferences: { dietary: [], allergies: [] },
-    notes: '',
-    createdAt: new Date().toISOString(),
-  });
 
   setSession(res, user);
   return res.status(201).json({ user: sanitizeUser(user) });
@@ -72,6 +59,8 @@ router.post('/login', protectSessionIssuance, (req, res) => {
   if (!user.active) {
     return res.status(403).json({ error: 'This account has been suspended. Please contact your manager.' });
   }
+  // Upgrade an older hash to the current work factor now that the password is known to be right.
+  if (needsRehash(user.passwordHash)) user.passwordHash = hashPassword(password);
 
   setSession(res, user);
   return res.json({ user: sanitizeUser(user) });
@@ -144,7 +133,7 @@ router.post('/me/password', authenticateForAccountRecovery, (req, res) => {
   }
   const weak = passwordError(newPassword, req.user);
   if (weak) return res.status(400).json({ error: weak });
-  req.user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  req.user.passwordHash = hashPassword(newPassword);
   req.user.mustChangePassword = false;
   req.user.tokenVersion = (req.user.tokenVersion ?? 0) + 1;
   // A fresh token keeps this session signed in while older ones stop working.
@@ -185,7 +174,7 @@ router.post('/users/:id/reset-password', authenticate, requireRole('manager', 'a
   const target = managedTarget(req, res);
   if (!target) return undefined;
   const tempPassword = generateTempPassword();
-  target.passwordHash = bcrypt.hashSync(tempPassword, 10);
+  target.passwordHash = hashPassword(tempPassword);
   target.mustChangePassword = true;
   target.tokenVersion = (target.tokenVersion ?? 0) + 1;
   return res.json({ user: sanitizeUser(target), tempPassword });
@@ -204,7 +193,7 @@ router.post('/users/:id/password', authenticate, requireRole('admin'), (req, res
   }
   const weak = passwordError(newPassword, target);
   if (weak) return res.status(400).json({ error: weak });
-  target.passwordHash = bcrypt.hashSync(newPassword, 10);
+  target.passwordHash = hashPassword(newPassword);
   target.mustChangePassword = false;
   target.tokenVersion = (target.tokenVersion ?? 0) + 1;
   return res.json({ user: sanitizeUser(target) });
@@ -217,7 +206,7 @@ router.get('/roles', (req, res) => {
 
 /** GET /api/auth/users — full user list (Admin; Manager read-only). */
 router.get('/users', authenticate, requireRole('manager', 'admin'), (req, res) => {
-  res.json({ users: users.map(sanitizeUser) });
+  res.json({ users: userDirectory.all.map(sanitizeUser) });
 });
 
 /** PATCH /api/auth/users/:id — change role / active status (admin only). */
@@ -251,14 +240,12 @@ router.patch('/users/:id', requireAdmin, (req, res) => {
 
 /** DELETE /api/auth/users/:id — remove an account; access is revoked immediately (admin only). */
 router.delete('/users/:id', requireAdmin, (req, res) => {
-  const idx = users.findIndex((u) => u.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'User not found.' });
-  if (users[idx].id === req.user.id) return res.status(400).json({ error: 'You cannot remove your own account.' });
-  if (users[idx].role !== 'customer' && !canManage(req.user, users[idx])) return res.status(403).json({ error: BELOW_RANK_ERROR });
+  const target = findUserById(req.params.id);
+  if (!target) return res.status(404).json({ error: 'User not found.' });
+  if (target.id === req.user.id) return res.status(400).json({ error: 'You cannot remove your own account.' });
+  if (target.role !== 'customer' && !canManage(req.user, target)) return res.status(403).json({ error: BELOW_RANK_ERROR });
 
-  const [removed] = users.splice(idx, 1);
-  for (const c of customers) if (c.userId === removed.id) c.userId = null;
-  for (const t of tables) if (t.waiterId === removed.id) t.waiterId = null;
+  const removed = accounts.removeAccount(target.id);
   return res.json({ deleted: true, id: removed.id });
 });
 

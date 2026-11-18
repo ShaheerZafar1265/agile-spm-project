@@ -7,7 +7,8 @@
  * orders, tonight's bookings), 60 days of closed history for analytics, 90
  * days of shifts and attendance, and upcoming shifts.
  */
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../lib/passwords.js';
+import { UserDirectory } from '../domain/user-directory.js';
 import { priceSelection, computeTotals } from '../lib/order-math.js';
 import { MINUTE, localDate, localTime, addDays, iso } from '../lib/time.js';
 import { seedHistory } from './seed-history.js';
@@ -58,8 +59,8 @@ export const TIME_SLOTS = [
 
 /* ------------------------------------------------------------------ users */
 
-const DEMO_PASSWORD_HASH = bcrypt.hashSync('password', 10);
-const SUPERUSER_PASSWORD_HASH = bcrypt.hashSync('Admin@123456', 10);
+const DEMO_PASSWORD_HASH = hashPassword('password');
+const SUPERUSER_PASSWORD_HASH = hashPassword('Admin@123456');
 
 const seedUsers = [
   { id: 'usr_admin', name: 'Alex Admin', email: 'admin@rest.test', role: 'admin' },
@@ -84,12 +85,15 @@ export const users = seedUsers.map((u) => ({
   createdAt: iso(addDays(new Date(), -120)),
 }));
 
+/** The users array behind one object: O(1) verified lookups and encapsulated add/remove (domain/user-directory.js). */
+export const userDirectory = new UserDirectory(users);
+
 export function findUserByEmail(email) {
-  return users.find((u) => u.email.toLowerCase() === String(email || '').toLowerCase().trim());
+  return userDirectory.byEmail(email);
 }
 
 export function findUserById(id) {
-  return users.find((u) => u.id === id);
+  return userDirectory.byId(id);
 }
 
 export function sanitizeUser(user) {
@@ -105,7 +109,7 @@ export function createUser({ name, email, password, role = 'customer', mustChang
     name: String(name).trim(),
     email: String(email).toLowerCase().trim(),
     phone: '',
-    passwordHash: bcrypt.hashSync(password, 10),
+    passwordHash: hashPassword(password),
     role,
     active: true,
     mustChangePassword,
@@ -113,7 +117,7 @@ export function createUser({ name, email, password, role = 'customer', mustChang
     ...(STAFF_ROLES.includes(role) ? { hourlyWage: DEFAULT_WAGES[role] } : {}),
     createdAt: iso(),
   };
-  users.push(user);
+  userDirectory.add(user);
   return user;
 }
 
