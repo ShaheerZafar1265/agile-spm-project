@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
+    "check:bundle": "node scripts/check-no-workforce-mock.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

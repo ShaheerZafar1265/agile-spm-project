@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import WorkforcePage from '@/app/staff/workforce/page';
 import { useAuth } from '@/context/auth-context';
 import { setWorkforceMockUser } from '@/lib/workforce-api';
-import { workforceApi, workforceMock } from '@/lib/workforce-api';
+import { getWorkforceMock, workforceApi } from '@/lib/workforce-api';
 import type { User } from '@/types';
 
 /** A tiny stand-in for the App Router: the query string lives in a store the hooks subscribe to. */
@@ -82,9 +82,9 @@ beforeAll(async () => {
   await Promise.all([import('@/components/workforce/work-charts'), import('@/components/workforce/team-charts')]);
 }, 30_000);
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorage.clear();
-  workforceMock.reset();
+  (await getWorkforceMock()).reset();
   toast.mockClear();
   nav.reset();
   nav.push.mockClear();
