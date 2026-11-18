@@ -137,7 +137,9 @@ Two Vercel projects, deployed with the Vercel CLI from their own folders:
 | Project               | Folder      | Environment variables                         |
 |-----------------------|-------------|-----------------------------------------------|
 | `plate-and-flame-api` | `server/`   | `DATABASE_URL` (Neon pooled URL), `JWT_SECRET` |
-| `plate-and-flame-web` | `frontend/` | `API_URL` = the API's URL (used by the `/api/*` rewrite at build time) |
+| `plate-and-flame-web` | `frontend/` | `API_URL` = the API's public **https** URL (used by the `/api/*` rewrite at build time) |
+
+**Production configuration is checked before it ships.** A production web build (`next build`) fails with a message naming `API_URL` when it is missing, not a valid URL, not `https://`, or points at localhost, so a release can never quietly proxy to `localhost:4000`. The API refuses to start in production without a real `JWT_SECRET` (the built-in development secret is rejected). Errors name the setting and never print its value. Local development is unaffected: `pnpm dev` needs no variables. To build for production on purpose without a real API (CI and the browser tests do), set `ALLOW_LOCAL_API=1`, for example `ALLOW_LOCAL_API=1 pnpm build`. Preview deployments need their own `API_URL` (an https URL) in the Vercel project's Preview environment variables. The rules live in `frontend/src/lib/api-origin.mjs` and `server/src/lib/jwt.js`.
 
 Optional for the web app: `NEXT_PUBLIC_WORKFORCE_MOCK=true` runs My work and the Workforce hub on in-browser demo data instead of the API (the unit tests do this).
 
