@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { tables, tableStatuses, orders, reservations, users, ZONES, nextId } from '../data/store.js';
+import { tables, tableStatuses, orders, reservations, findUserById, ZONES, nextId } from '../data/store.js';
 import { requireRole } from '../middleware/auth.js';
 import { isActive, userName } from '../lib/orders.js';
 import { syncTableHolds, isLate } from '../lib/reservations.js';
@@ -92,10 +92,11 @@ router.patch('/:id', floorRoles, (req, res) => {
   if (status !== undefined && !tableStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
   if (waiterId !== undefined && waiterId !== null) {
     if (typeof waiterId !== 'string') return res.status(400).json({ error: 'Unknown staff member.' });
-    if (waiterId && !users.some((u) => u.id === waiterId && u.role !== 'customer')) {
+    const waiter = waiterId ? findUserById(waiterId) : undefined;
+    if (waiterId && (!waiter || waiter.role === 'customer')) {
       return res.status(400).json({ error: 'Unknown staff member.' });
     }
-    if (waiterId && !users.some((u) => u.id === waiterId && hasRole(u, ...FLOOR_STAFF) && u.active)) {
+    if (waiterId && !(hasRole(waiter, ...FLOOR_STAFF) && waiter.active)) {
       return res.status(400).json({ error: 'Only active floor staff (waiters and managers) can look after a table.' });
     }
   }

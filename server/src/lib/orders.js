@@ -7,7 +7,7 @@ import {
   orders,
   tables,
   customers,
-  users,
+  userDirectory,
   menuItems,
   inventory,
   stockMovements,
@@ -28,7 +28,7 @@ export function tableNumber(tableId) {
 }
 
 export function userName(userId) {
-  return userId ? users.find((u) => u.id === userId)?.name ?? null : null;
+  return userId ? userDirectory.nameOf(userId, null) : null;
 }
 
 /** Human label used in notifications, e.g. "Table 4" or "Order #1043 (pickup)". */

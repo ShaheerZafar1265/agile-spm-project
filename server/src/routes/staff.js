@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { users, applications, shifts, orders, STAFF_ROLES, createUser, findUserByEmail, sanitizeUser, nextId } from '../data/store.js';
+import { userDirectory, applications, shifts, orders, STAFF_ROLES, createUser, findUserByEmail, findUserById, sanitizeUser, nextId } from '../data/store.js';
 import { requireRole } from '../middleware/auth.js';
 import { notify } from '../lib/notify.js';
 import { MINUTE, addDays, combine, isValidDate, isValidTime, localDate, iso } from '../lib/time.js';
@@ -14,11 +14,11 @@ const managerRoles = requireRole('manager', 'admin');
 const staffRoles = requireRole(...STAFF_ROLES);
 
 
-const nameOf = (userId) => users.find((u) => u.id === userId)?.name ?? 'Former staff';
+const nameOf = (userId) => userDirectory.nameOf(userId, 'Former staff');
 const shiftHours = (s) => (combine(s.date, s.end) - combine(s.date, s.start)) / (60 * MINUTE);
 
 function serializeShift(s) {
-  const u = users.find((x) => x.id === s.userId);
+  const u = findUserById(s.userId);
   return { ...s, userName: u?.name ?? 'Former staff', role: u?.role ?? null, hours: Math.round(shiftHours(s) * 10) / 10 };
 }
 
@@ -32,7 +32,7 @@ function rangeFromQuery(query, defaultFrom, defaultTo) {
 
 /** GET /api/staff/roster — active and suspended staff accounts (manager/admin). */
 router.get('/roster', managerRoles, (req, res) => {
-  res.json({ staff: users.filter((u) => STAFF_ROLES.includes(u.role)).map(sanitizeUser) });
+  res.json({ staff: userDirectory.all.filter((u) => STAFF_ROLES.includes(u.role)).map(sanitizeUser) });
 });
 
 /* ---------------------------------------------------------- applications */
@@ -131,7 +131,7 @@ router.get('/shifts', managerRoles, (req, res) => {
 });
 
 function validateShift({ userId, date, start, end }, excludeId) {
-  const user = users.find((u) => u.id === userId);
+  const user = findUserById(userId);
   if (!user || !STAFF_ROLES.includes(user.role)) return 'Choose a staff member.';
   if (!user.active) return `${user.name} is suspended.`;
   if (!isValidDate(date)) return 'Choose a valid date.';
@@ -195,7 +195,7 @@ router.get('/performance', managerRoles, (req, res) => {
     return d >= from && d <= to && o.status !== 'cancelled';
   });
 
-  const staff = users.filter((u) => STAFF_ROLES.includes(u.role));
+  const staff = userDirectory.all.filter((u) => STAFF_ROLES.includes(u.role));
   const rows = staff.map((u) => {
     const taken = inRange.filter((o) => o.waiterId === u.id);
     const settled = taken.filter((o) => o.paymentStatus !== 'unpaid');

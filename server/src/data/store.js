@@ -8,6 +8,7 @@
  * days of shifts and attendance, and upcoming shifts.
  */
 import { hashPassword } from '../lib/passwords.js';
+import { UserDirectory } from '../domain/user-directory.js';
 import { priceSelection, computeTotals } from '../lib/order-math.js';
 import { MINUTE, localDate, localTime, addDays, iso } from '../lib/time.js';
 import { seedHistory } from './seed-history.js';
@@ -84,12 +85,15 @@ export const users = seedUsers.map((u) => ({
   createdAt: iso(addDays(new Date(), -120)),
 }));
 
+/** The users array behind one object: O(1) verified lookups and encapsulated add/remove (domain/user-directory.js). */
+export const userDirectory = new UserDirectory(users);
+
 export function findUserByEmail(email) {
-  return users.find((u) => u.email.toLowerCase() === String(email || '').toLowerCase().trim());
+  return userDirectory.byEmail(email);
 }
 
 export function findUserById(id) {
-  return users.find((u) => u.id === id);
+  return userDirectory.byId(id);
 }
 
 export function sanitizeUser(user) {
@@ -113,7 +117,7 @@ export function createUser({ name, email, password, role = 'customer', mustChang
     ...(STAFF_ROLES.includes(role) ? { hourlyWage: DEFAULT_WAGES[role] } : {}),
     createdAt: iso(),
   };
-  users.push(user);
+  userDirectory.add(user);
   return user;
 }
 
