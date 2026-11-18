@@ -114,6 +114,30 @@ describe('api()', () => {
     expect(err).toBeInstanceOf(ApiError);
   });
 
+  it('turns network failures into an actionable ApiError and keeps the original cause', async () => {
+    // Arrange
+    const networkError = new TypeError('Failed to fetch');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(networkError));
+
+    // Act / Assert
+    await expect(api('/menu')).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'Could not connect to the server. Check your connection and try again.',
+      status: 0,
+      data: null,
+      cause: networkError,
+    });
+  });
+
+  it('preserves AbortError so callers can distinguish intentional cancellation', async () => {
+    // Arrange
+    const abortError = new DOMException('The request was aborted.', 'AbortError');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abortError));
+
+    // Act / Assert
+    await expect(api('/menu')).rejects.toBe(abortError);
+  });
+
   it('notifies the provider of a 401 from a protected API endpoint', async () => {
     // Arrange
     const onExpired = vi.fn();

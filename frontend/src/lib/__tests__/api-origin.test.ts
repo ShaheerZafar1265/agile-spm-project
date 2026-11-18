@@ -47,11 +47,22 @@ describe('production', () => {
     expect(() => resolveApiOrigin(production())).toThrow(/ALLOW_LOCAL_API=1/);
   });
 
-  test('a valid https API_URL is accepted, with any trailing slash removed', () => {
+  test('a valid https origin is accepted, with any trailing slash and surrounding space removed', () => {
     // Arrange / Act / Assert
     expect(resolveApiOrigin(production({ API_URL: 'https://plate-and-flame-api.vercel.app' }))).toBe('https://plate-and-flame-api.vercel.app');
     expect(resolveApiOrigin(production({ API_URL: 'https://plate-and-flame-api.vercel.app/' }))).toBe('https://plate-and-flame-api.vercel.app');
-    expect(resolveApiOrigin(production({ API_URL: '  https://api.example.com/v1//  ' }))).toBe('https://api.example.com/v1');
+    expect(resolveApiOrigin(production({ API_URL: '  https://api.example.com:8443/  ' }))).toBe('https://api.example.com:8443');
+  });
+
+  test('only an origin is accepted: a path, query or fragment is rejected, in every environment', () => {
+    // Arrange
+    const withExtras = ['https://api.example.com/v1', 'https://api.example.com/?x=1', 'https://api.example.com/#frag', 'http://localhost:4000/api'];
+
+    for (const API_URL of withExtras) {
+      // Act / Assert
+      expect(() => resolveApiOrigin(production({ API_URL })), API_URL).toThrow(/origin only/);
+      expect(() => resolveApiOrigin({ NODE_ENV: 'development', API_URL }), API_URL).toThrow(/origin only/);
+    }
   });
 
   test('a preview environment with its own explicit https API is accepted', () => {
@@ -120,6 +131,38 @@ describe('production', () => {
       const { hostname } = new URL(API_URL);
       if (hostname !== 'localhost') expect(message).not.toContain(hostname);
     }
+  });
+});
+
+describe('Vercel Production', () => {
+  test('is always strict, and ALLOW_LOCAL_API=1 cannot switch the rules off there', () => {
+    // Arrange
+    const vercel = (extra: Record<string, string | undefined> = {}) => ({ NODE_ENV: 'production', VERCEL_ENV: 'production', ALLOW_LOCAL_API: '1', ...extra });
+
+    // Act / Assert
+    expect(() => resolveApiOrigin(vercel())).toThrow(/API_URL is not set/);
+    expect(() => resolveApiOrigin(vercel({ API_URL: 'http://localhost:4000' }))).toThrow(/https:\/\/ in production/);
+    expect(() => resolveApiOrigin(vercel({ API_URL: 'https://localhost:4000' }))).toThrow(/points at this machine/);
+    expect(resolveApiOrigin(vercel({ API_URL: 'https://api.example.com' }))).toBe('https://api.example.com');
+  });
+
+  test('applies even when NODE_ENV is not "production"', () => {
+    // Arrange / Act / Assert
+    expect(() => resolveApiOrigin({ NODE_ENV: 'development', VERCEL_ENV: 'production' })).toThrow(/API_URL is not set/);
+  });
+
+  test('a Preview build is strict too, so it needs its own https API_URL', () => {
+    // Arrange / Act / Assert
+    expect(() => resolveApiOrigin({ NODE_ENV: 'production', VERCEL_ENV: 'preview' })).toThrow(/API_URL is not set/);
+    expect(resolveApiOrigin({ NODE_ENV: 'production', VERCEL_ENV: 'preview', API_URL: 'https://api-preview.example.com/' })).toBe('https://api-preview.example.com');
+  });
+
+  test('the same function is also exported as apiOrigin', async () => {
+    // Arrange
+    const mod = await import('@/lib/api-origin.mjs');
+
+    // Act / Assert
+    expect(mod.apiOrigin).toBe(mod.resolveApiOrigin);
   });
 });
 

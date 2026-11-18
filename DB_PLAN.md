@@ -535,7 +535,7 @@ Legacy table (no longer used): `app_state` — the old single-row snapshot. See
 
 ## 6. Indexes
 
-65 indexes in total (64 in `001_schema.sql`, one in `005_one_superadmin.sql`). Only the ones that serve a real query are listed.
+66 indexes in total (64 in `001_schema.sql`, one in `005_one_superadmin.sql`, and one net index in `006_attendance_integrity.sql`). Only the ones that serve a real query are listed.
 
 ### Identity and accounts
 
@@ -618,7 +618,8 @@ Legacy table (no longer used): `app_state` — the old single-row snapshot. See
 | `idx_shifts_date` | The roster for a given day |
 | `idx_attendance_sessions_user_date` | Attendance and hours for one person on one day |
 | `idx_attendance_sessions_user_clock_in` | A person's sessions, newest first |
-| `idx_attendance_sessions_open` (partial) | **"Who is working now"** — only sessions with no clock-out (`WHERE clock_out IS NULL`) |
+| `uq_attendance_sessions_one_open` (unique, partial) | **"Who is working now"** and protects one open session per staff member (`WHERE clock_out IS NULL`) |
+| `uq_attendance_breaks_one_open` (unique, partial) | Protects one open break per attendance session (`WHERE end IS NULL`) |
 | `idx_attendance_breaks_session` | The breaks inside one session |
 | `idx_pay_adjustments_user_date` | Bonuses and deductions per person per period |
 
@@ -644,7 +645,7 @@ cp server/.env.example server/.env
 pnpm --dir server db:init
 ```
 
-`db:init` applies the schema files (`001_schema.sql`, `003_store_fields.sql`, `004_superadmin_role.sql`, `005_one_superadmin.sql`, one transaction each, in that order) and then `002_seed.sql`. It is
+`db:init` applies the schema files (`001_schema.sql`, `003_store_fields.sql`, `004_superadmin_role.sql`, `005_one_superadmin.sql`, `006_attendance_integrity.sql`, one transaction each, in that order) and then `002_seed.sql`. It is
 **idempotent**: running it against a database that already has the schema re-applies the DDL
 without touching the data, so it is safe to run again.
 
@@ -698,6 +699,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/001_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/003_store_fields.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/004_superadmin_role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/005_one_superadmin.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/006_attendance_integrity.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/schema/002_seed.sql
 ```
 
@@ -766,7 +768,7 @@ Store fields that needed schema support:
 
 `loyalty_ledger` is created but stays empty: the store keeps only the balance.
 
-The schema files (`001`, `003`, `004`, `005`) are applied by the server itself on its first database
+The schema files (`001`, `003`, `004`, `005`, `006`) are applied by the server itself on its first database
 request (`ensureSchema` in `server/src/data/db.js`); every statement is idempotent.
 
 Timing (local Postgres 16, full demo store ≈ 850 orders, 1.4 MB of JSON): a save takes

@@ -25,6 +25,7 @@ import { getPool, ensureSchema } from './data/db.js';
 import { persistState } from './data/persist.js';
 import { EMAIL_MAX, hasUnsafeKeys, isPlainObject } from './lib/validate.js';
 import { signingSecret } from './lib/jwt.js';
+import { validateProductionConfig } from './lib/production-config.js';
 import { protectCookieWrites } from './lib/session-cookie.js';
 
 /**
@@ -36,6 +37,7 @@ import { protectCookieWrites } from './lib/session-cookie.js';
 export function createApp({
   logging = true, persistence = Boolean(process.env.DATABASE_URL), rateLimits = true, limiterStore,
 } = {}) {
+  validateProductionConfig();
   signingSecret();
   const app = express();
   // Behind Vercel's proxy the client address is in X-Forwarded-For. Elsewhere the

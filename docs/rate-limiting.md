@@ -27,7 +27,7 @@ Policy and storage are separate.
 - `server/src/lib/rate-limit-store.js` only counts. A store has `consume` (count one attempt, get back whether
   it is allowed and the seconds until reset) and `refund` (take one back). Two implementations:
   - **`PostgresStore`**: counts in the `rate_limits` table, shared by every instance. Used whenever the API
-    persists to a database (`DATABASE_URL` set), which is production.
+    persists to a database (`DATABASE_URL` set), which production requires.
   - **`MemoryStore`**: counts in this process. Synchronous, no network. Used in local development and tests,
     and when there is no database. It is the original behaviour, including its cap on tracked keys.
 
@@ -82,8 +82,9 @@ request: <reason>`. The log never contains the IP address or email being counted
 
 ## Production without a shared store
 
-If a production API ends up on `MemoryStore` (no `DATABASE_URL`, or `RATE_LIMIT_STORE=memory`), it still
-starts, so a misconfiguration cannot take the site down, but it logs once at startup:
+Production already refuses to start without a remote `DATABASE_URL` (`server/src/lib/production-config.js`),
+so it always gets the shared store. The only way to run production on `MemoryStore` is to ask for it with
+`RATE_LIMIT_STORE=memory`. That is allowed, but never silent: it logs once at startup:
 
 > [rate-limit] production is using process-local rate limit counters: each API instance counts on its own ...
 

@@ -10,6 +10,7 @@ import { MenuDrawer } from '@/components/layout/menu-drawer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { FlameMark } from '@/components/storefront/flame-mark';
+import { FaqAssistant } from '@/components/storefront/faq-assistant';
 import { isStaff } from '@/lib/permissions';
 
 function SearchIcon() {
@@ -261,6 +262,7 @@ export function StorefrontShell({ children }: { children: React.ReactNode }) {
       <CartDrawer />
       <MenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
       <MobileBottomNav />
+      <FaqAssistant />
 
       <footer className="hidden border-t border-char-hairline bg-char-deep lg:block">
         <div className="mx-auto flex max-w-[1240px] flex-col gap-10 px-6 py-12 sm:flex-row sm:justify-between sm:gap-16">
