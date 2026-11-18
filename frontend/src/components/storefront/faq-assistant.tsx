@@ -75,7 +75,10 @@ export function FaqAssistant() {
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="fixed bottom-24 right-4 z-[60] inline-flex h-12 items-center gap-2 rounded-full border border-char-hairline bg-ember px-5 text-sm font-semibold text-bone shadow-lg transition hover:bg-ember-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-soft lg:bottom-5"
+        // Sits above the floating cart bar (bottom-16 on phones, bottom-6 at the right on desktop,
+        // see components/menu/cart-drawer.tsx) so the two never overlap: the browser tests caught the
+        // assistant covering "View your order".
+        className="fixed bottom-32 right-4 z-[60] inline-flex h-12 items-center gap-2 rounded-full border border-char-hairline bg-ember px-5 text-sm font-semibold text-bone shadow-lg transition hover:bg-ember-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-soft lg:bottom-28 lg:right-6"
       >
         <span aria-hidden="true">?</span> Ask a question
       </button>

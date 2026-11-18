@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 // Copies of the server's page renderer and endpoint catalogue (`pnpm --dir server run export:health`).
 import { renderHealthPage } from '@/lib/api-health/health-page.js';
 import snapshot from '@/lib/api-health/catalog.json';
-import { apiOrigin } from '@/lib/api-origin.mjs';
+import { resolveApiOrigin } from '@/lib/api-origin.mjs';
 
 /**
  * GET /api/health on the web app: the API status page, served here rather than
@@ -14,7 +14,7 @@ import { apiOrigin } from '@/lib/api-origin.mjs';
  */
 export const dynamic = 'force-dynamic';
 
-const API = apiOrigin();
+const API = resolveApiOrigin();
 const TIMEOUT_MS = 4000;
 
 async function apiJson<T>(path: string): Promise<T | null> {

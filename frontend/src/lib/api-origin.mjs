@@ -1,33 +1,72 @@
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+/**
+ * Where the web app sends /api/* traffic. One validator, used by next.config.mjs (the rewrite) and the
+ * /api/health route, so the two can never disagree about the API address.
+ *
+ * - Development and tests: API_URL is optional and defaults to the local API.
+ * - Production (NODE_ENV=production, which `next build` and `next start` set, or VERCEL_ENV=production):
+ *   API_URL is required and must be an https origin that is not this machine. A missing value used to fall
+ *   back to localhost silently and produce a deployed site that cannot reach its API.
+ * - Always: a valid absolute http(s) URL with no username, password, path, query or fragment. Only the
+ *   origin is accepted ("https://api.example.com", optionally with a trailing slash).
+ * - ALLOW_LOCAL_API=1 opts out of the production rules for a production build that is deliberately local
+ *   (CI's build step, the browser tests, `pnpm build` on a laptop). It is ignored on Vercel Production
+ *   (VERCEL_ENV=production), where the rules always apply.
+ *
+ * Errors name the setting and the fix, and never print the configured value: it may carry credentials.
+ */
 
-function isLocalHost(hostname) {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  return LOCAL_HOSTS.has(host) || host.endsWith('.localhost') || /^127(?:\.\d{1,3}){3}$/.test(host);
-}
+export const LOCAL_API_URL = 'http://localhost:4000';
 
-/** Resolve the API origin shared by Next rewrites and the health proxy. */
-export function apiOrigin(env = process.env) {
-  const configured = env.API_URL?.trim();
-  const production = env.VERCEL_ENV === 'production'
-    || (env.NODE_ENV === 'production' && env.VERCEL_ENV !== 'preview');
+const LOOPBACK = /^(localhost|.*\.localhost|0\.0\.0\.0|127(\.\d{1,3}){3}|\[?::1?\]?)$/i;
 
-  if (!configured) {
-    if (production) throw new Error('API_URL must be set to the production API origin.');
-    return 'http://localhost:4000';
+/**
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {string} the API origin without a trailing slash, e.g. "https://api.example.com"
+ */
+export function resolveApiOrigin(env = process.env) {
+  const onVercelProduction = env.VERCEL_ENV === 'production';
+  const strict = onVercelProduction || (env.NODE_ENV === 'production' && env.ALLOW_LOCAL_API !== '1');
+  const raw = env.API_URL?.trim();
+
+  if (!raw) {
+    if (strict) {
+      throw new Error(
+        'API_URL is not set. A production build needs the API\'s https URL, for example '
+        + 'https://your-api.vercel.app. Set it in the web project\'s environment variables '
+        + '(for a deliberately local production build, set ALLOW_LOCAL_API=1).',
+      );
+    }
+    return LOCAL_API_URL;
   }
 
   let url;
   try {
-    url = new URL(configured);
+    url = new URL(raw);
   } catch {
-    throw new Error('API_URL must be a valid absolute HTTP(S) origin.');
+    throw new Error('API_URL is not a valid URL. Use a full URL such as https://your-api.vercel.app.');
   }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password
-    || url.pathname !== '/' || url.search || url.hash) {
-    throw new Error('API_URL must be a valid absolute HTTP(S) origin without credentials, path, query, or fragment.');
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('API_URL must start with http:// or https://.');
   }
-  if (production && (url.protocol !== 'https:' || isLocalHost(url.hostname))) {
-    throw new Error('API_URL must use HTTPS and a non-localhost host in production.');
+  if (url.username || url.password) {
+    throw new Error('API_URL must not contain a username or password.');
+  }
+  if (url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('API_URL must be an origin only, with no path, query or fragment, for example https://your-api.vercel.app.');
+  }
+  if (strict) {
+    if (url.protocol !== 'https:') {
+      throw new Error('API_URL must use https:// in production.');
+    }
+    if (LOOPBACK.test(url.hostname)) {
+      throw new Error(
+        'API_URL points at this machine (localhost) but this is a production build. '
+        + 'Use the API\'s public https URL (for a deliberately local production build, set ALLOW_LOCAL_API=1).',
+      );
+    }
   }
   return url.origin;
 }
+
+/** The name the same function has on `main`; kept so both names work. */
+export const apiOrigin = resolveApiOrigin;

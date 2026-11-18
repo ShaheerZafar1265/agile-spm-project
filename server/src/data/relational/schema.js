@@ -8,6 +8,7 @@ export const SCHEMA_FILES = [
   '004_superadmin_role.sql',
   '005_one_superadmin.sql',
   '006_attendance_integrity.sql',
+  '007_rate_limits.sql',
 ];
 const dir = new URL('../../../schema/', import.meta.url);
 
