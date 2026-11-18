@@ -1,15 +1,13 @@
 import { Router } from 'express';
 import {
-  users,
+  userDirectory,
   findUserByEmail,
   findUserById,
-  createUser,
   sanitizeUser,
-  customers,
-  tables,
-  nextId,
   ROLES,
 } from '../data/store.js';
+import { accounts } from '../domain/accounts.js';
+import { AccountError } from '../domain/account-service.js';
 import { authenticate, authenticateForAccountRecovery, revokeSession, requireRole, requireAdmin } from '../middleware/auth.js';
 import { clearSession, protectSessionIssuance, setSession } from '../lib/session-cookie.js';
 import { hashPassword, needsRehash, passwordMatches } from '../lib/passwords.js';
@@ -32,25 +30,15 @@ router.post('/register', protectSessionIssuance, (req, res) => {
   if (typeof password !== 'string') return res.status(400).json({ error: 'Password must be text.' });
   const weak = passwordError(password, { email, name });
   if (weak) return res.status(400).json({ error: weak });
-  if (findUserByEmail(email)) {
-    return res.status(409).json({ error: 'An account with that email already exists.' });
+
+  // A new signup gets a linked customer profile immediately (self-service); the account service does both.
+  let user;
+  try {
+    user = accounts.registerCustomer({ name, email, password });
+  } catch (err) {
+    if (err instanceof AccountError && err.code === 'EMAIL_TAKEN') return res.status(409).json({ error: err.message });
+    throw err;
   }
-
-  const user = createUser({ name, email, password, role: 'customer' });
-
-  // A new signup gets a linked customer profile immediately (self-service).
-  customers.push({
-    id: nextId('cus'),
-    userId: user.id,
-    name: user.name,
-    email: user.email,
-    phone: '',
-    type: 'online',
-    loyaltyPoints: 0,
-    preferences: { dietary: [], allergies: [] },
-    notes: '',
-    createdAt: new Date().toISOString(),
-  });
 
   setSession(res, user);
   return res.status(201).json({ user: sanitizeUser(user) });
@@ -218,7 +206,7 @@ router.get('/roles', (req, res) => {
 
 /** GET /api/auth/users — full user list (Admin; Manager read-only). */
 router.get('/users', authenticate, requireRole('manager', 'admin'), (req, res) => {
-  res.json({ users: users.map(sanitizeUser) });
+  res.json({ users: userDirectory.all.map(sanitizeUser) });
 });
 
 /** PATCH /api/auth/users/:id — change role / active status (admin only). */
@@ -252,14 +240,12 @@ router.patch('/users/:id', requireAdmin, (req, res) => {
 
 /** DELETE /api/auth/users/:id — remove an account; access is revoked immediately (admin only). */
 router.delete('/users/:id', requireAdmin, (req, res) => {
-  const idx = users.findIndex((u) => u.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'User not found.' });
-  if (users[idx].id === req.user.id) return res.status(400).json({ error: 'You cannot remove your own account.' });
-  if (users[idx].role !== 'customer' && !canManage(req.user, users[idx])) return res.status(403).json({ error: BELOW_RANK_ERROR });
+  const target = findUserById(req.params.id);
+  if (!target) return res.status(404).json({ error: 'User not found.' });
+  if (target.id === req.user.id) return res.status(400).json({ error: 'You cannot remove your own account.' });
+  if (target.role !== 'customer' && !canManage(req.user, target)) return res.status(403).json({ error: BELOW_RANK_ERROR });
 
-  const [removed] = users.splice(idx, 1);
-  for (const c of customers) if (c.userId === removed.id) c.userId = null;
-  for (const t of tables) if (t.waiterId === removed.id) t.waiterId = null;
+  const removed = accounts.removeAccount(target.id);
   return res.json({ deleted: true, id: removed.id });
 });
 
