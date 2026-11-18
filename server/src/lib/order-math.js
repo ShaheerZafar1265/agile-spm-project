@@ -58,7 +58,7 @@ export function lineTotal(item) {
  * discount. Rates are snapshotted on the order (order.rates) when it is created.
  */
 export function computeTotals(order) {
-  const totals = Order.fromRecord(order).recalculateTotals().toRecord();
+  const totals = Order.fromRecord(order).recalculateTotals().toTotals();
   Object.assign(order, {
     subtotal: totals.subtotal,
     discount: totals.discount,

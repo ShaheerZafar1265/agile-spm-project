@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DineInOrder, OnlineOrder, Order } from '../../src/domain/order.js';
+import { DineInOrder, Order } from '../../src/domain/order.js';
 import { OrderItem } from '../../src/domain/order-item.js';
 import { computeTotals } from '../../src/lib/order-math.js';
 
@@ -15,13 +15,14 @@ const orderRecord = (type) => ({
 
 test('order factory chooses the matching subtype and returns the shared base contract', () => {
   assert.ok(Order.fromRecord(orderRecord('dine-in')) instanceof DineInOrder);
-  assert.ok(Order.fromRecord(orderRecord('online')) instanceof OnlineOrder);
+  assert.ok(Order.fromRecord(orderRecord('online')) instanceof Order);
+  assert.ok(!(Order.fromRecord(orderRecord('online')) instanceof DineInOrder));
   assert.ok(Order.fromRecord(orderRecord('other')) instanceof Order);
 });
 
 test('subtypes apply service charge polymorphically while preserving cent arithmetic', () => {
-  const dineIn = Order.fromRecord(orderRecord('dine-in')).recalculateTotals().toRecord();
-  const online = Order.fromRecord(orderRecord('online')).recalculateTotals().toRecord();
+  const dineIn = Order.fromRecord(orderRecord('dine-in')).recalculateTotals().toTotals();
+  const online = Order.fromRecord(orderRecord('online')).recalculateTotals().toTotals();
 
   assert.deepEqual(
     { subtotal: dineIn.subtotal, discount: dineIn.discount, serviceCharge: dineIn.serviceCharge, tax: dineIn.tax, tip: dineIn.tip, total: dineIn.total },
@@ -44,12 +45,16 @@ test('legacy computeTotals mutates and returns the same plain record shape', () 
   assert.equal(record.items[0], firstItem);
 });
 
-test('domain state is encapsulated and exported records are detached', () => {
-  const entity = Order.fromRecord(orderRecord('online'));
-  const exported = entity.toRecord();
-  exported.items[0].qty = 99;
+test('the order snapshots pricing inputs and exposes only detached calculated totals', () => {
+  const source = orderRecord('online');
+  const entity = Order.fromRecord(source);
+  source.items[0].qty = 99;
+  source.rates.taxRate = 0.9;
+  const totals = entity.recalculateTotals().toTotals();
+  totals.total = 999;
 
-  assert.equal(entity.toRecord().items[0].qty, 2);
+  assert.equal(entity.toTotals().total, 21.42);
+  assert.equal(Object.hasOwn(entity.toTotals(), 'items'), false);
   assert.equal(entity.record, undefined);
 });
 

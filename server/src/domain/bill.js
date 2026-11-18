@@ -1,3 +1,5 @@
+import { OrderItem } from './order-item.js';
+
 /** Billing calculations for even and item based splits of a settled total. */
 export class Bill {
   #totalCents;
@@ -5,10 +7,8 @@ export class Bill {
 
   constructor(order) {
     this.#totalCents = Math.round(Number(order.total || 0) * 100);
-    this.#items = (order.items || []).map((item) => ({
-      id: item.id,
-      lineCents: Math.round(Number(item.unitPrice || 0) * 100) * item.qty,
-    }));
+    this.#items = (Array.isArray(order.items) ? order.items : [])
+      .map((item) => new OrderItem(item));
   }
 
   /** Allocate remainder cents from the first payer onward, matching existing receipts. */
@@ -34,8 +34,8 @@ export class Bill {
       return { error: 'Each payer needs at least one item.' };
     }
 
-    const itemAmounts = new Map(this.#items.map((item) => [item.id, item.lineCents]));
-    const subtotalCents = this.#items.reduce((sum, item) => sum + item.lineCents, 0);
+    const itemAmounts = new Map(this.#items.map((item) => [item.id, item.totalCents]));
+    const subtotalCents = this.#items.reduce((sum, item) => sum + item.totalCents, 0);
     const groupSubtotals = groups.map((ids) =>
       ids.reduce((sum, id) => sum + itemAmounts.get(id), 0),
     );
