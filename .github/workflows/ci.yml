@@ -49,6 +49,9 @@ jobs:
       - name: Web — unit tests
         run: pnpm --dir frontend run test
 
+      - name: Web — test files cannot leak into each other (vmThreads isolation)
+        run: pnpm --dir frontend run check:isolation && pnpm --dir frontend run test:scripts
+
       - name: Web — type check
         run: pnpm --dir frontend exec tsc --noEmit
 
