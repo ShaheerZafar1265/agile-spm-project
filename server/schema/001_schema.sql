@@ -685,9 +685,9 @@ CREATE INDEX IF NOT EXISTS idx_attendance_sessions_user_date
 CREATE INDEX IF NOT EXISTS idx_attendance_sessions_user_clock_in
   ON attendance_sessions (user_id, clock_in DESC);
 -- Open sessions (clocked in, not clocked out) — used by the "who is on shift" view.
-CREATE INDEX IF NOT EXISTS idx_attendance_sessions_open
-  ON attendance_sessions (user_id)
-  WHERE clock_out IS NULL;
+-- Served by the unique partial index uq_attendance_sessions_one_open (006_attendance_integrity.sql), which
+-- replaced the plain idx_attendance_sessions_open that used to be created here. Creating it on every schema
+-- run only for 006 to drop it again made every server start build and drop an index.
 
 -- Breaks taken inside an attendance session. An open break has no `end`.
 CREATE TABLE IF NOT EXISTS attendance_breaks (
