@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event';
 import MyWorkPage from '@/app/staff/my-work/page';
 import { useAuth } from '@/context/auth-context';
 import { setWorkforceMockUser } from '@/lib/workforce-api';
-import { workforceApi, workforceMock } from '@/lib/workforce-api';
+import { getWorkforceMock, workforceApi } from '@/lib/workforce-api';
 import type { User } from '@/types';
 
 vi.mock('@/components/layout/staff-layout', () => ({
@@ -28,9 +28,9 @@ vi.mock('react-chartjs-2', () => ({
 
 const waiter: User = { id: 'usr_waiter', name: 'Will Waiter', email: 'waiter@rest.test', role: 'waiter', active: true } as User;
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorage.clear();
-  workforceMock.reset();
+  (await getWorkforceMock()).reset();
   setWorkforceMockUser(waiter);
   vi.mocked(useAuth).mockReturnValue({ user: waiter } as unknown as ReturnType<typeof useAuth>);
   toast.mockClear();

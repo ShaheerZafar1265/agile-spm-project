@@ -38,15 +38,11 @@ import type {
   WorkShiftStatus,
   WorkSummary,
 } from '@/types';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '@/lib/attendance-defaults';
 
 /* ------------------------------------------------------------- constants */
 
-export const DEFAULT_ATTENDANCE_SETTINGS: AttendanceSettings = {
-  lateGraceMinutes: 5,
-  latePenalty: 5,
-  autoBreakMinutes: 60,
-  autoBreakAfterHours: 6,
-};
+export { DEFAULT_ATTENDANCE_SETTINGS };
 
 /** Seed hourly wage per role. */
 export const DEFAULT_WAGES: Record<StaffRole, number> = { waiter: 12, chef: 15, manager: 20, admin: 25, superadmin: 25 };
