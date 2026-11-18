@@ -10,6 +10,9 @@
     "lint": "next lint",
     "check:bundle": "node scripts/check-no-workforce-mock.mjs",
     "test": "vitest run",
+    "bench:test": "node scripts/bench-tests.mjs",
+    "check:isolation": "node scripts/check-test-isolation.mjs",
+    "test:scripts": "node --test scripts/check-test-isolation.test.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
