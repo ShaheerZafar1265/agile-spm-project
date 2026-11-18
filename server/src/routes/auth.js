@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import {
   users,
   findUserByEmail,
@@ -13,7 +12,7 @@ import {
 } from '../data/store.js';
 import { authenticate, authenticateForAccountRecovery, revokeSession, requireRole, requireAdmin } from '../middleware/auth.js';
 import { clearSession, protectSessionIssuance, setSession } from '../lib/session-cookie.js';
-import { passwordMatches } from '../lib/passwords.js';
+import { hashPassword, needsRehash, passwordMatches } from '../lib/passwords.js';
 import { ASSIGNABLE_ROLES, canManage, BELOW_RANK_ERROR } from '../lib/hierarchy.js';
 import { passwordError, generateTempPassword, PASSWORD_MAX } from '../lib/password-policy.js';
 import { personName, email as readEmail, phone as readPhone, bool, oneOf, EMAIL_MAX } from '../lib/validate.js';
@@ -72,6 +71,8 @@ router.post('/login', protectSessionIssuance, (req, res) => {
   if (!user.active) {
     return res.status(403).json({ error: 'This account has been suspended. Please contact your manager.' });
   }
+  // Upgrade an older hash to the current work factor now that the password is known to be right.
+  if (needsRehash(user.passwordHash)) user.passwordHash = hashPassword(password);
 
   setSession(res, user);
   return res.json({ user: sanitizeUser(user) });
@@ -144,7 +145,7 @@ router.post('/me/password', authenticateForAccountRecovery, (req, res) => {
   }
   const weak = passwordError(newPassword, req.user);
   if (weak) return res.status(400).json({ error: weak });
-  req.user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  req.user.passwordHash = hashPassword(newPassword);
   req.user.mustChangePassword = false;
   req.user.tokenVersion = (req.user.tokenVersion ?? 0) + 1;
   // A fresh token keeps this session signed in while older ones stop working.
@@ -185,7 +186,7 @@ router.post('/users/:id/reset-password', authenticate, requireRole('manager', 'a
   const target = managedTarget(req, res);
   if (!target) return undefined;
   const tempPassword = generateTempPassword();
-  target.passwordHash = bcrypt.hashSync(tempPassword, 10);
+  target.passwordHash = hashPassword(tempPassword);
   target.mustChangePassword = true;
   target.tokenVersion = (target.tokenVersion ?? 0) + 1;
   return res.json({ user: sanitizeUser(target), tempPassword });
@@ -204,7 +205,7 @@ router.post('/users/:id/password', authenticate, requireRole('admin'), (req, res
   }
   const weak = passwordError(newPassword, target);
   if (weak) return res.status(400).json({ error: weak });
-  target.passwordHash = bcrypt.hashSync(newPassword, 10);
+  target.passwordHash = hashPassword(newPassword);
   target.mustChangePassword = false;
   target.tokenVersion = (target.tokenVersion ?? 0) + 1;
   return res.json({ user: sanitizeUser(target) });
