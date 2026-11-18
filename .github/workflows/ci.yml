@@ -54,6 +54,10 @@ jobs:
 
       - name: Web — production build
         run: pnpm --dir frontend run build
+        env:
+          # CI has no real API to point at; a production build otherwise requires an https API_URL
+          # (frontend/src/lib/api-origin.mjs).
+          ALLOW_LOCAL_API: '1'
 
   # Critical-path browser suite (bolt 001): customer order -> waiter confirm -> chef kitchen,
   # against production builds, on disposable in-memory data. Kept in its own job so the

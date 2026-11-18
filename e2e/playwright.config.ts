@@ -75,7 +75,9 @@ export default defineConfig({
       cwd: repoRoot,
       reuseExistingServer: false,
       timeout: 300_000,
-      env: { API_URL, NODE_ENV: 'production', NEXT_TELEMETRY_DISABLED: '1' },
+      // ALLOW_LOCAL_API: a production build normally refuses a localhost API (frontend/src/lib/api-origin.mjs);
+      // this one is deliberately local.
+      env: { API_URL, NODE_ENV: 'production', ALLOW_LOCAL_API: '1', NEXT_TELEMETRY_DISABLED: '1' },
     },
   ],
 });
