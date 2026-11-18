@@ -49,13 +49,16 @@ export const AUTH_EXPIRED_EVENT = 'auth:expired';
 
 /** Error thrown for non-2xx responses; `data` carries the JSON body (e.g. booking alternatives). */
 export class ApiError extends Error {
-  status: number;
-  data: unknown;
+  readonly status: number;
+  readonly data: unknown;
+  readonly cause?: unknown;
 
-  constructor(message: string, status: number, data: unknown) {
+  constructor(message: string, status: number, data: unknown, cause?: unknown) {
     super(message);
+    this.name = 'ApiError';
     this.status = status;
     this.data = data;
+    this.cause = cause;
   }
 }
 
@@ -71,12 +74,22 @@ export async function api<T = unknown>(path: string, options: ApiOptions = {}): 
     requestHeaders.set('X-Requested-With', 'RestaurantOps');
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...rest,
-    credentials: 'same-origin',
-    headers: requestHeaders,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...rest,
+      credentials: 'same-origin',
+      headers: requestHeaders,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (cause) {
+    // Preserve caller cancellation while turning offline/DNS failures into a
+    // consistent, actionable error for screens that already handle ApiError.
+    if (cause && typeof cause === 'object' && 'name' in cause && cause.name === 'AbortError') {
+      throw cause;
+    }
+    throw new ApiError('Could not connect to the server. Check your connection and try again.', 0, null, cause);
+  }
 
   let data: unknown = null;
   const text = await res.text();

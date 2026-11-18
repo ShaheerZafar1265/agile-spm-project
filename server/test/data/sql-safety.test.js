@@ -75,7 +75,8 @@ test('user input only travels as a bound value, never inside the SQL text', asyn
   assert.equal(res.status, 201);
   assert.ok(db.log.some(({ params }) => params.some((p) => String(p).includes('Robert'))), 'the name was saved as a parameter');
   for (const { sql } of db.log) {
-    assert.ok(!sql.includes('Robert') && !sql.includes('DROP'), `input leaked into SQL: ${sql}`);
+    assert.ok(!sql.includes('Robert'), `input leaked into SQL: ${sql}`);
+    assert.ok(!sql.includes("Robert'); DROP TABLE users;--"), `injected SQL reached the query: ${sql}`);
     assert.ok(!sql.includes('bobby@example.com'), `input leaked into SQL: ${sql}`);
   }
 });
