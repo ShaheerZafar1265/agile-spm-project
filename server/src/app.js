@@ -20,6 +20,7 @@ import healthRoutes from './routes/health.js';
 import { PROBE_HEADER } from './lib/health-probe.js';
 import { authenticate, optionalAuth } from './middleware/auth.js';
 import { rateLimit, limitPost } from './middleware/rate-limit.js';
+import { securityHeaders } from './middleware/security-headers.js';
 import { createRateLimitStore } from './lib/rate-limit-store.js';
 import { getPool, ensureSchema } from './data/db.js';
 import { persistState } from './data/persist.js';
@@ -45,6 +46,8 @@ export function createApp({
   if (process.env.VERCEL) app.set('trust proxy', 1);
 
   // The browser uses a same-origin proxy. Never approve the cookie CSRF header via CORS.
+  app.disable('x-powered-by');
+  app.use(securityHeaders);
   app.use(cors({ allowedHeaders: ['Content-Type', 'Authorization'] }));
   // The largest real body (a recipe or reorder form) is a few KB; 100 KB is generous.
   app.use(express.json({ limit: '100kb' }));
