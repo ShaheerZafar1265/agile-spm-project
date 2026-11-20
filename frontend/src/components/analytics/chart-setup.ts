@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import type { TooltipOptions } from 'chart.js';
+export { CHART_COLORS } from '@/components/analytics/chart-colors';
 
 /**
  * Registers only the Chart.js pieces the analytics dashboard uses (bar + line
@@ -33,28 +34,6 @@ if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
     ChartJS.defaults.animation = false;
   }
 }
-
-/**
- * One palette for every analytics chart: brand for money, steel blue-grey for
- * counts, a pale step of the count hue for de-emphasised marks. Validated for
- * colour-vision separation against the white card surface.
- */
-export const CHART_COLORS = {
-  revenue: '#d06f2b', // brand-500
-  revenueHover: '#b85620', // brand-600
-  count: '#3f6ea6',
-  countHover: '#335a88',
-  muted: '#bccadb',
-  mutedHover: '#a5b6cb',
-  grid: '#f0eeec',
-  axis: '#e7e5e4',
-  surface: '#ffffff',
-  axisTitle: '#78716c', // stone-500 — axis titles
-  label: '#44403c', // stone-700 — category labels and legend text
-  danger: '#b91c1c', // red-700 — a state that needs attention (late, over budget)
-  track: '#e7e5e4', // stone-200 — empty track behind rings and meters
-  breakTime: '#d6d3d1', // stone-300 — time off the clock
-} as const;
 
 /** Dark, high-contrast tooltip shared by every chart. */
 export const TOOLTIP_STYLE: Partial<TooltipOptions<'bar'>> = {

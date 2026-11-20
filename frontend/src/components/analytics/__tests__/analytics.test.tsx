@@ -138,6 +138,7 @@ describe('chart-setup', () => {
     expect(tokens).toMatchObject({
       axisTitle: '#78716c',
       label: '#44403c',
+      warning: '#d97706',
       danger: '#b91c1c',
       track: '#e7e5e4',
       breakTime: '#d6d3d1',
