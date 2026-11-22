@@ -127,6 +127,10 @@ export const ROUTE_DOCS = {
     summary: 'Machine-readable catalogue of every endpoint (this page as JSON).',
     response: ok({ service: 'restaurant-ops-api', count: 84, modules: ['auth', '...'], endpoints: [{ method: 'GET', path: '/api/menu', module: 'menu', auth: 'optional', roles: [], probe: { enabled: true } }] }),
   },
+  'GET /api/health/openapi.json': {
+    summary: 'OpenAPI 3.0.3 specification document describing every endpoint, parameter and schema.',
+    response: ok({ openapi: '3.0.3', info: { title: 'Restaurant Operations & Ordering Platform API', version: '1.0.0' } }),
+  },
   'GET /api/health/check': {
     summary: 'Runs the live probes: every safe GET is called without credentials; results are cached for a few seconds.',
     probe: false,

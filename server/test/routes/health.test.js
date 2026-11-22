@@ -170,3 +170,18 @@ test('with persistence on, /api/health opens no DB connection and /check reports
     setPool(undefined);
   }
 });
+
+test('GET /api/health/openapi.json serves valid OpenAPI 3.0.3 specification covering all routes', async () => {
+  // Act
+  const { status, body } = await api.call('GET', '/health/openapi.json');
+
+  // Assert
+  assert.equal(status, 200);
+  assert.equal(body.openapi, '3.0.3');
+  assert.equal(body.info.title, 'Restaurant Operations & Ordering Platform API');
+  assert.ok(body.paths['/menu']?.get);
+  assert.ok(body.paths['/auth/login']?.post);
+  assert.ok(body.components.securitySchemes.bearerAuth);
+  assert.ok(Object.keys(body.paths).length > 20);
+  assert.ok(body.tags.length >= 10);
+});
