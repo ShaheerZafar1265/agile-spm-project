@@ -540,6 +540,11 @@ export const ROUTE_DOCS = {
     response: ok({ purchaseOrder: { ...PURCHASE_ORDER, status: 'received', receivedAt: '2026-10-09T08:00:00.000Z' } }),
     errors: ['409 already received'],
   },
+  'POST /api/inventory/purchase-orders/:id/cancel': {
+    summary: 'Cancel a pending purchase order.',
+    response: ok({ purchaseOrder: { ...PURCHASE_ORDER, status: 'cancelled' } }),
+    errors: ['409 already received or cancelled'],
+  },
 
   /* ---- staff */
   'GET /api/staff/roster': {

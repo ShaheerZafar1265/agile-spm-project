@@ -122,13 +122,17 @@ router.patch('/:id', kitchenRoles, (req, res) => {
   return res.json({ item: serialize(item) });
 });
 
-/** DELETE /api/inventory/:id — remove an ingredient not used in any recipe (manager/admin). */
+/** DELETE /api/inventory/:id — remove an ingredient not used in any recipe or pending purchase order (manager/admin). */
 router.delete('/:id', managerRoles, (req, res) => {
   const idx = inventory.findIndex((i) => i.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Inventory item not found.' });
   const usedBy = menuItems.filter((m) => m.recipe.some((r) => r.inventoryId === req.params.id));
   if (usedBy.length) {
     return res.status(409).json({ error: `Used in recipes: ${usedBy.map((m) => m.name).join(', ')}. Remove it from those recipes first.` });
+  }
+  const pendingOrders = purchaseOrders.filter((p) => p.status === 'sent' && p.lines.some((l) => l.inventoryId === req.params.id));
+  if (pendingOrders.length) {
+    return res.status(409).json({ error: `Part of pending purchase order: ${pendingOrders.map((p) => p.number).join(', ')}. Receive or cancel the order first.` });
   }
   const [removed] = inventory.splice(idx, 1);
   return res.json({ deleted: true, id: removed.id });
@@ -201,12 +205,24 @@ router.post('/purchase-orders/:id/receive', managerRoles, (req, res) => {
   const po = purchaseOrders.find((p) => p.id === req.params.id);
   if (!po) return res.status(404).json({ error: 'Purchase order not found.' });
   if (po.status === 'received') return res.status(409).json({ error: 'This order was already received.' });
+  if (po.status === 'cancelled') return res.status(409).json({ error: 'Cannot receive a cancelled purchase order.' });
   for (const line of po.lines) {
     const item = inventory.find((i) => i.id === line.inventoryId);
     if (item) adjustStock(item, line.qty, 'restock', { userId: req.user.id });
   }
   po.status = 'received';
   po.receivedAt = iso();
+  return res.json({ purchaseOrder: po });
+});
+
+/** POST /api/inventory/purchase-orders/:id/cancel — cancel a sent purchase order (manager/admin). */
+router.post('/purchase-orders/:id/cancel', managerRoles, (req, res) => {
+  const po = purchaseOrders.find((p) => p.id === req.params.id);
+  if (!po) return res.status(404).json({ error: 'Purchase order not found.' });
+  if (po.status === 'received') return res.status(409).json({ error: 'Cannot cancel a purchase order that was already received.' });
+  if (po.status === 'cancelled') return res.status(409).json({ error: 'This purchase order is already cancelled.' });
+  po.status = 'cancelled';
+  po.cancelledAt = iso();
   return res.json({ purchaseOrder: po });
 });
 
