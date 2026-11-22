@@ -83,6 +83,35 @@
       }
     },
     {
+      "id": "GET /api/health/openapi.json",
+      "module": "health",
+      "method": "GET",
+      "path": "/api/health/openapi.json",
+      "params": [],
+      "documented": true,
+      "summary": "OpenAPI 3.0.3 specification document describing every endpoint, parameter and schema.",
+      "auth": "none",
+      "roles": [],
+      "rolesSource": null,
+      "access": null,
+      "query": null,
+      "body": null,
+      "response": {
+        "status": 200,
+        "example": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Restaurant Operations & Ordering Platform API",
+            "version": "1.0.0"
+          }
+        }
+      },
+      "errors": [],
+      "probe": {
+        "enabled": true
+      }
+    },
+    {
       "id": "GET /api/health/check",
       "module": "health",
       "method": "GET",
@@ -1204,7 +1233,7 @@
         "id"
       ],
       "documented": true,
-      "summary": "Delete a customer record that has no order history (management only).",
+      "summary": "Delete a customer record that has no order history or active reservations (management only).",
       "auth": "required",
       "roles": [
         "manager",
@@ -1223,7 +1252,7 @@
       },
       "errors": [
         "404 customer not found",
-        "409 customer has order history and can't be deleted"
+        "409 customer has order history or active reservations and can't be deleted"
       ],
       "probe": {
         "enabled": false,
@@ -1666,7 +1695,7 @@
         "id"
       ],
       "documented": true,
-      "summary": "Delete a menu item.",
+      "summary": "Delete a menu item that has no active orders.",
       "auth": "required",
       "roles": [
         "manager",
@@ -1683,7 +1712,10 @@
           "id": "mi_3"
         }
       },
-      "errors": [],
+      "errors": [
+        "404 menu item not found",
+        "409 cannot delete a menu item with active orders"
+      ],
       "probe": {
         "enabled": false,
         "reason": "Not probed (mutating)"
@@ -4411,6 +4443,58 @@
       },
       "errors": [
         "409 already received"
+      ],
+      "probe": {
+        "enabled": false,
+        "reason": "Not probed (mutating)"
+      }
+    },
+    {
+      "id": "POST /api/inventory/purchase-orders/:id/cancel",
+      "module": "inventory",
+      "method": "POST",
+      "path": "/api/inventory/purchase-orders/:id/cancel",
+      "params": [
+        "id"
+      ],
+      "documented": true,
+      "summary": "Cancel a pending purchase order.",
+      "auth": "required",
+      "roles": [
+        "manager",
+        "admin"
+      ],
+      "rolesSource": "guard",
+      "access": null,
+      "query": null,
+      "body": null,
+      "response": {
+        "status": 200,
+        "example": {
+          "purchaseOrder": {
+            "id": "po_2",
+            "number": "PO-0002",
+            "status": "cancelled",
+            "total": 47.5,
+            "notes": "",
+            "createdAt": "2026-10-08T09:00:00.000Z",
+            "receivedAt": null,
+            "lines": [
+              {
+                "inventoryId": "inv_5",
+                "name": "Mozzarella",
+                "unit": "kg",
+                "supplier": "Dairy Co",
+                "qty": 5,
+                "costPerUnit": 9.5,
+                "cost": 47.5
+              }
+            ]
+          }
+        }
+      },
+      "errors": [
+        "409 already received or cancelled"
       ],
       "probe": {
         "enabled": false,

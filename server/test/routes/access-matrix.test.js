@@ -99,6 +99,7 @@ const MATRIX = [
   ['GET', '/inventory/purchase-orders', MANAGEMENT],
   ['POST', '/inventory/purchase-orders', MANAGEMENT, {}],
   ['POST', '/inventory/purchase-orders/po_nope/receive', MANAGEMENT, {}],
+  ['POST', '/inventory/purchase-orders/po_nope/cancel', MANAGEMENT, {}],
 
   // Staff — everyone sees their own shifts; rota, hiring and performance are management
   ['GET', '/staff/shifts/mine', STAFF],
