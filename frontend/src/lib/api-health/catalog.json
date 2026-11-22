@@ -6354,6 +6354,365 @@
         "enabled": false,
         "reason": "Not probed (mutating)"
       }
+    },
+    {
+      "id": "GET /api/reviews/summary",
+      "module": "reviews",
+      "method": "GET",
+      "path": "/api/reviews/summary",
+      "params": [],
+      "documented": true,
+      "summary": "Aggregate rating scores, star distribution, and recommendation rates.",
+      "auth": "optional",
+      "roles": [],
+      "rolesSource": null,
+      "access": null,
+      "query": null,
+      "body": null,
+      "response": {
+        "status": 200,
+        "example": {
+          "summary": {
+            "totalReviews": 24,
+            "averageRating": 4.8,
+            "averageFoodRating": 4.9,
+            "averageServiceRating": 4.7,
+            "recommendationRate": 96,
+            "distribution": {
+              "1": 0,
+              "2": 1,
+              "3": 1,
+              "4": 4,
+              "5": 18
+            }
+          }
+        }
+      },
+      "errors": [],
+      "probe": {
+        "enabled": true
+      }
+    },
+    {
+      "id": "GET /api/reviews/mine",
+      "module": "reviews",
+      "method": "GET",
+      "path": "/api/reviews/mine",
+      "params": [],
+      "documented": true,
+      "summary": "List all reviews submitted by the signed-in customer.",
+      "auth": "required",
+      "roles": [
+        "customer"
+      ],
+      "rolesSource": "guard",
+      "access": null,
+      "query": null,
+      "body": null,
+      "response": {
+        "status": 200,
+        "example": {
+          "reviews": [
+            {
+              "id": "rev_1",
+              "orderId": "ord_1",
+              "customerId": "cus_8",
+              "customerName": "Alex Kim",
+              "rating": 5,
+              "foodRating": 5,
+              "serviceRating": 5,
+              "comment": "Delicious pizza and fast service!",
+              "menuItemIds": [
+                "mi_3"
+              ],
+              "menuItemNames": [
+                "Margherita"
+              ],
+              "tags": [
+                "delicious",
+                "fast"
+              ],
+              "status": "published",
+              "managerResponse": "Thank you Alex!",
+              "respondedAt": "2026-10-09T10:00:00.000Z",
+              "createdAt": "2026-10-08T20:30:00.000Z"
+            }
+          ]
+        }
+      },
+      "errors": [],
+      "probe": {
+        "enabled": true
+      }
+    },
+    {
+      "id": "GET /api/reviews",
+      "module": "reviews",
+      "method": "GET",
+      "path": "/api/reviews",
+      "params": [],
+      "documented": true,
+      "summary": "Public list of verified customer reviews with rating and dish filters.",
+      "auth": "optional",
+      "roles": [],
+      "rolesSource": null,
+      "access": null,
+      "query": {
+        "menuItemId": {
+          "type": "string",
+          "required": false,
+          "note": "Filter by dish"
+        },
+        "rating": {
+          "type": "integer",
+          "required": false,
+          "note": "Filter by exact star rating 1-5"
+        },
+        "minRating": {
+          "type": "number",
+          "required": false,
+          "note": "Filter by minimum star rating"
+        },
+        "sort": {
+          "type": "string",
+          "required": false,
+          "note": "newest|highest|lowest"
+        },
+        "scope": {
+          "type": "string",
+          "required": false,
+          "note": "Staff pass scope=all to see hidden/flagged reviews"
+        }
+      },
+      "body": null,
+      "response": {
+        "status": 200,
+        "example": {
+          "reviews": [
+            {
+              "id": "rev_1",
+              "orderId": "ord_1",
+              "customerId": "cus_8",
+              "customerName": "Alex Kim",
+              "rating": 5,
+              "foodRating": 5,
+              "serviceRating": 5,
+              "comment": "Delicious pizza and fast service!",
+              "menuItemIds": [
+                "mi_3"
+              ],
+              "menuItemNames": [
+                "Margherita"
+              ],
+              "tags": [
+                "delicious",
+                "fast"
+              ],
+              "status": "published",
+              "managerResponse": "Thank you Alex!",
+              "respondedAt": "2026-10-09T10:00:00.000Z",
+              "createdAt": "2026-10-08T20:30:00.000Z"
+            }
+          ]
+        }
+      },
+      "errors": [],
+      "probe": {
+        "enabled": true
+      }
+    },
+    {
+      "id": "POST /api/reviews",
+      "module": "reviews",
+      "method": "POST",
+      "path": "/api/reviews",
+      "params": [],
+      "documented": true,
+      "summary": "Submit a verified review for a served or paid order (customers only).",
+      "auth": "required",
+      "roles": [
+        "customer"
+      ],
+      "rolesSource": "guard",
+      "access": null,
+      "query": null,
+      "body": {
+        "orderId": {
+          "type": "string",
+          "required": true,
+          "note": "Completed order ID"
+        },
+        "rating": {
+          "type": "integer",
+          "required": true,
+          "note": "1 to 5 stars"
+        },
+        "foodRating": {
+          "type": "integer",
+          "required": false,
+          "note": "1 to 5 stars"
+        },
+        "serviceRating": {
+          "type": "integer",
+          "required": false,
+          "note": "1 to 5 stars"
+        },
+        "comment": {
+          "type": "string",
+          "required": false,
+          "note": "Review feedback, max 1000 characters"
+        },
+        "menuItemIds": {
+          "type": "array",
+          "required": false,
+          "note": "List of menu item IDs from this order"
+        },
+        "tags": {
+          "type": "array",
+          "required": false,
+          "note": "Short descriptive tags"
+        }
+      },
+      "response": {
+        "status": 201,
+        "example": {
+          "review": {
+            "id": "rev_1",
+            "orderId": "ord_1",
+            "customerId": "cus_8",
+            "customerName": "Alex Kim",
+            "rating": 5,
+            "foodRating": 5,
+            "serviceRating": 5,
+            "comment": "Delicious pizza and fast service!",
+            "menuItemIds": [
+              "mi_3"
+            ],
+            "menuItemNames": [
+              "Margherita"
+            ],
+            "tags": [
+              "delicious",
+              "fast"
+            ],
+            "status": "published",
+            "managerResponse": "Thank you Alex!",
+            "respondedAt": "2026-10-09T10:00:00.000Z",
+            "createdAt": "2026-10-08T20:30:00.000Z"
+          }
+        }
+      },
+      "errors": [
+        "400 invalid rating or unfulfilled order",
+        "403 not your order",
+        "404 order not found",
+        "409 already reviewed this order"
+      ],
+      "probe": {
+        "enabled": false,
+        "reason": "Not probed (mutating)"
+      }
+    },
+    {
+      "id": "PATCH /api/reviews/:id",
+      "module": "reviews",
+      "method": "PATCH",
+      "path": "/api/reviews/:id",
+      "params": [
+        "id"
+      ],
+      "documented": true,
+      "summary": "Manager responds to a review or updates moderation status (management only).",
+      "auth": "required",
+      "roles": [
+        "manager",
+        "admin"
+      ],
+      "rolesSource": "guard",
+      "access": null,
+      "query": null,
+      "body": {
+        "status": {
+          "type": "string",
+          "required": false,
+          "note": "published|hidden|flagged"
+        },
+        "managerResponse": {
+          "type": "string",
+          "required": false,
+          "note": "Official restaurant reply, max 500 characters"
+        }
+      },
+      "response": {
+        "status": 200,
+        "example": {
+          "review": {
+            "id": "rev_1",
+            "orderId": "ord_1",
+            "customerId": "cus_8",
+            "customerName": "Alex Kim",
+            "rating": 5,
+            "foodRating": 5,
+            "serviceRating": 5,
+            "comment": "Delicious pizza and fast service!",
+            "menuItemIds": [
+              "mi_3"
+            ],
+            "menuItemNames": [
+              "Margherita"
+            ],
+            "tags": [
+              "delicious",
+              "fast"
+            ],
+            "status": "published",
+            "managerResponse": "Thank you for dining with us!",
+            "respondedAt": "2026-10-09T10:00:00.000Z",
+            "createdAt": "2026-10-08T20:30:00.000Z"
+          }
+        }
+      },
+      "errors": [
+        "404 review not found"
+      ],
+      "probe": {
+        "enabled": false,
+        "reason": "Not probed (mutating)"
+      }
+    },
+    {
+      "id": "DELETE /api/reviews/:id",
+      "module": "reviews",
+      "method": "DELETE",
+      "path": "/api/reviews/:id",
+      "params": [
+        "id"
+      ],
+      "documented": true,
+      "summary": "Remove an inappropriate or spam review (management only).",
+      "auth": "required",
+      "roles": [
+        "manager",
+        "admin"
+      ],
+      "rolesSource": "guard",
+      "access": null,
+      "query": null,
+      "body": null,
+      "response": {
+        "status": 200,
+        "example": {
+          "deleted": true,
+          "id": "rev_1"
+        }
+      },
+      "errors": [
+        "404 review not found"
+      ],
+      "probe": {
+        "enabled": false,
+        "reason": "Not probed (mutating)"
+      }
     }
   ]
 }

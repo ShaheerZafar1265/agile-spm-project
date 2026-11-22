@@ -34,6 +34,7 @@ If a phase grows too big, it is split, never stretched. Update this file wheneve
 | 9 | Phone numbers: digits only, one +92 format | 16 | [x] |
 | 10a | Harmic-style responsive sizes, site-wide | 16 | [x] |
 | 10b | Responsive sweep: storefront, admin ops, admin people | 16 | [x] |
+| 11 | Customer Reviews & Dining Feedback: verified ratings, CSAT, moderation | 17 | [x] |
 
 ---
 
@@ -194,6 +195,15 @@ Three parallel branches built on 10a, each owning separate files:
 Each branch was merged one at a time, gated, and released to `main` before the next. Card and modal are shared, so customer pages also got the tighter phone padding.
 
 **Still to do by hand:** browser check on a phone (360px) of the storefront and staff screens.
+
+## Phase 11: Customer Reviews & Dining Feedback [x]
+
+**Goal:** verified customers can review served dining experiences; managers monitor customer satisfaction (CSAT) and moderate reviews.
+
+- [x] Reviews REST API (`server/src/routes/reviews.js`) with public feed, star summary, customer self-service (`/mine`), order verification, manager moderation, and notifications.
+- [x] In-memory store and snapshot round-tripping (`server/src/data/store.js`, `server/src/data/snapshot.js`).
+- [x] OpenAPI 3.0.3 specification and catalogue synchronization.
+- [x] Test suite: 9 acceptance tests with Arrange-Act-Assert (`server/test/routes/reviews.test.js`); full server suite passes at 421 tests.
 
 ## Rules of the road
 
