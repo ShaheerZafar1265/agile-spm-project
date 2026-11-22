@@ -142,6 +142,10 @@ If a phase grows too big, it is split, never stretched. Update this file wheneve
 - [x] Menu domain hardening: preserve sort 0 on category creation
 - [x] Auth domain hardening: clear table waiter assignment when staff account is removed
 - [x] Workforce domain hardening: 404 boundary test for adjustment deletion on unknown staff
+- [x] Inventory domain hardening: prevent deletion of ingredients on pending purchase orders and add cancellation
+- [x] Customers domain hardening: protect customer records from deletion while active reservations exist
+- [x] Menu domain hardening: prevent deletion of menu items with active kitchen orders
+- [x] API documentation: OpenAPI 3.0.3 specification generator and discovery endpoint (/api/health/openapi.json)
 
 ## Phase 7b: Clean-up [ ]
 
