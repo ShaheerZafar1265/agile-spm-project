@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { customers, orders, reservations, users, findCustomerByUserId, nextId } from '../data/store.js';
+import { customers, orders, reservations, userDirectory, findCustomerByUserId, nextId } from '../data/store.js';
 import { requireRole } from '../middleware/auth.js';
+import { passwordMatches } from '../lib/passwords.js';
 import { localDate } from '../lib/time.js';
 import { personName, email as readEmail, phone as readPhone, text, object, stringList, oneOf } from '../lib/validate.js';
 
@@ -126,8 +127,11 @@ router.patch('/me', (req, res) => {
   if (error) return res.status(400).json({ error });
   // A customer's sign-in email cannot be blank.
   if (body.email !== undefined && !fields.email) return res.status(400).json({ error: 'Please enter a valid email address.' });
-  if (fields.email !== undefined && users.some((u) => u.id !== req.user.id && u.email === fields.email)) {
+  if (fields.email !== undefined && userDirectory.emailTaken(fields.email, req.user.id)) {
     return res.status(409).json({ error: 'That email is already used by another account.' });
+  }
+  if (fields.email !== undefined && fields.email !== req.user.email && !passwordMatches(req.user, body.currentPassword)) {
+    return res.status(400).json({ error: 'Enter your current password to change your email.' });
   }
 
   const customer = provisionForUser(req.user);

@@ -5,6 +5,7 @@ import type { User } from '@/types';
 import { ApiError, authApi } from '@/lib/api';
 import { errorMessage } from '@/lib/format';
 import { useAuth } from '@/context/auth-context';
+import { emailIsBound } from '@/lib/permissions';
 import { Card, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
 import { TextField } from '@/components/staff/text-field';
@@ -129,7 +130,8 @@ export function AccountProfileForm({ user }: { user: User }) {
             placeholder="name@example.com"
             inputMode="email"
             error={errors.email}
-            hint="You sign in with this address."
+            disabled={emailIsBound(user.role)}
+            hint={emailIsBound(user.role) ? 'Bound to the super admin role, so it cannot be changed here.' : 'You sign in with this address.'}
           />
           <TextField
             id="account-phone"

@@ -2,7 +2,7 @@
 
 import type { AttendanceSettings, MyStatus } from '@/types';
 import { formatClock } from '@/lib/format';
-import { DEFAULT_ATTENDANCE_SETTINGS } from '@/lib/workforce-mock';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '@/lib/attendance-defaults';
 import { useNow } from '@/hooks/use-polling';
 import { Badge } from '@/components/ui/badge';
 import { STATE_META, clockTime, elapsedText, hoursText } from '@/components/workforce/workforce-format';

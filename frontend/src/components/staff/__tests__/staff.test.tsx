@@ -54,6 +54,7 @@ vi.mock('@/lib/api', async () => ({
 vi.mock('@/components/ui/toast', () => ({ useToast: () => toastMock }));
 vi.mock('@/context/auth-context', () => ({ useAuth: () => ({ user: auth.user }) }));
 
+const superadmin: User = { id: 'usr_super', name: 'Sabih Super', email: 'sabih@rest.test', role: 'superadmin', active: true };
 const admin: User = { id: 'usr_admin', name: 'Ada Admin', email: 'ada@rest.test', role: 'admin', active: true };
 const manager: User = { id: 'usr_manager', name: 'Mia Manager', email: 'mia@rest.test', role: 'manager', active: true };
 const chef: User = { id: 'usr_chef', name: 'Carlos Chef', email: 'carlos@rest.test', role: 'chef', active: true };
@@ -290,6 +291,52 @@ describe('AccountTable', () => {
     }
   });
 
+  it('gives the super admin every control on an admin, but never offers the super admin role', async () => {
+    // Arrange
+    auth.user = superadmin;
+    const user = userEvent.setup({ delay: null });
+    render(<AccountTable users={[superadmin, admin]} onChanged={vi.fn()} />);
+
+    // Act
+    await openMore(user, 'Ada Admin');
+
+    // Assert
+    const adaRow = screen.getByText('Ada Admin').closest('li')!;
+    const picker = within(adaRow).getByRole('combobox', { name: 'Role for Ada Admin' });
+    expect(picker).toBeEnabled();
+    expect(within(picker).getByRole('option', { name: 'Admin' })).toBeInTheDocument();
+    expect(within(picker).queryByRole('option', { name: 'Super admin' })).not.toBeInTheDocument();
+    expect(within(adaRow).getByRole('menuitem', { name: 'Reset password for Ada Admin' })).toBeInTheDocument();
+    expect(within(adaRow).getByRole('menuitem', { name: 'Suspend' })).toBeEnabled();
+  });
+
+  it("shows the super admin's own row with its badge, never a picker", () => {
+    // Arrange
+    auth.user = superadmin;
+
+    // Act
+    render(<AccountTable users={[superadmin, admin]} onChanged={vi.fn()} />);
+
+    // Assert
+    const row = screen.getByText('Sabih Super').closest('li')!;
+    expect(within(row).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(row).getByText('Super admin')).toBeInTheDocument();
+  });
+
+  it('shows the super admin read-only to an admin', () => {
+    // Arrange
+    auth.user = admin;
+
+    // Act
+    render(<AccountTable users={[superadmin, admin]} onChanged={vi.fn()} />);
+
+    // Assert
+    const row = screen.getByText('Sabih Super').closest('li')!;
+    expect(within(row).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(row).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(row).getByText('Super admin')).toBeInTheDocument();
+  });
+
   it('gives an admin every control on a manager but none on another admin', async () => {
     // Arrange
     auth.user = admin;
@@ -432,6 +479,31 @@ describe('AllAccountsPanel', () => {
     expect(screen.getByText('No accounts match')).toBeInTheDocument();
   });
 
+  it('switches between all, staff-only, and customer-only account groups', async () => {
+    // Arrange
+    auth.user = admin;
+    vi.mocked(authApi.users).mockResolvedValue({ users: [admin, waiter, customer] } as never);
+    const user = userEvent.setup({ delay: null });
+    render(<AllAccountsPanel />);
+    await screen.findByText('Cora Customer');
+
+    // Both sections visible by default
+    expect(screen.getByRole('heading', { name: /Staff accounts/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Customer accounts/i })).toBeInTheDocument();
+
+    // Act — click Staff
+    await user.click(screen.getByRole('button', { name: /^Staff \(/i }));
+    // Assert
+    expect(screen.getByRole('heading', { name: /Staff accounts/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Customer accounts/i })).not.toBeInTheDocument();
+
+    // Act — click Customers
+    await user.click(screen.getByRole('button', { name: /^Customers \(/i }));
+    // Assert
+    expect(screen.queryByRole('heading', { name: /Staff accounts/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Customer accounts/i })).toBeInTheDocument();
+  });
+
   it('reloads the list and notifies the parent after a change', async () => {
     // Arrange
     auth.user = admin;
@@ -504,6 +576,18 @@ describe('ApplicationsPanel', () => {
 
     // Assert
     expect(staffApi.approve).toHaveBeenCalledWith('app_1', 'chef');
+  });
+
+  it('lets the super admin approve someone as a manager, like an admin', () => {
+    // Arrange
+    auth.user = superadmin;
+
+    // Act
+    render(<ApplicationsPanel applications={[makeApplication()]} loading={false} onChanged={vi.fn()} />);
+
+    // Assert
+    expect(screen.getByRole('option', { name: 'Manager' })).toBeInTheDocument();
+    expect(screen.queryByText('Managers can approve waiters and chefs.')).not.toBeInTheDocument();
   });
 
   it('only lets an admin approve someone as a manager', () => {

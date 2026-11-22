@@ -258,3 +258,19 @@ test('DELETE /inventory/:id returns 404 for unknown ingredient and 403 for unaut
   assert.equal(forbiddenChef.status, 403);
   assert.equal(forbiddenWaiter.status, 403);
 });
+
+test('the super admin edits ingredient details, like an admin', async () => {
+  // Arrange
+  const superadmin = await api.login('sabihuddin106@gmail.com', 'Admin@123456');
+  const chef = await api.login('chef');
+  const [ingredient] = (await api.call('GET', '/inventory', { token: superadmin })).body.inventory;
+
+  // Act
+  const details = await api.call('PATCH', `/inventory/${ingredient.id}`, { token: superadmin, body: { reorderLevel: ingredient.reorderLevel } });
+  const asChef = await api.call('PATCH', `/inventory/${ingredient.id}`, { token: chef, body: { reorderLevel: ingredient.reorderLevel } });
+
+  // Assert
+  assert.equal(details.status, 200);
+  assert.equal(asChef.status, 403);
+});
+});

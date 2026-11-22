@@ -17,7 +17,7 @@ import { idsOf, extsOf, insertRows, selectRows } from './sql.js';
 const AREAS = [people, menu, floor, orders, stock, alerts, workforce, config];
 
 /** Every data table, parents before children. `sequences` also holds state_version, so it is cleared separately. */
-const TABLES = [
+export const PERSISTED_TABLES = [
   'users', 'customers', 'customer_preferences', 'menu_categories', 'inventory_items', 'menu_items', 'recipe_lines',
   'tables', 'reservations', 'orders', 'order_items', 'order_refunds', 'bill_splits', 'split_parts', 'split_part_items',
   'stock_movements', 'purchase_orders', 'purchase_order_lines', 'notifications', 'notification_reads',
@@ -31,7 +31,11 @@ export async function saveStore(db, s) {
     menuItems: idsOf(s.menuItems), tables: idsOf(s.tables), reservations: idsOf(s.reservations), orders: idsOf(s.orders),
     orderItems: idsOf(s.orders.flatMap((o) => o.items)), shifts: idsOf(s.shifts),
   };
-  await db.query(`TRUNCATE ${TABLES.join(', ')} RESTART IDENTITY CASCADE`);
+  // Deliberately NOT `CASCADE`: it would also empty any table that references one of these, so a table added
+  // later (with a foreign key to users, orders, ...) and forgotten in the list above would be wiped on every
+  // save without a word. Without it, PostgreSQL refuses and the save fails loudly. A database test checks the
+  // list covers every table, and that tables outside it (rate_limits) survive a save.
+  await db.query(`TRUNCATE ${PERSISTED_TABLES.join(', ')} RESTART IDENTITY`);
   await db.query("DELETE FROM sequences WHERE name <> 'state_version'");
   for (const area of AREAS) {
     for (const step of area.save(s, ids)) {
@@ -43,7 +47,7 @@ export async function saveStore(db, s) {
 
 export async function loadStore(db) {
   const rows = {};
-  for (const t of TABLES) rows[t] = await selectRows(db, t, ORDER_BY[t] ?? 'id');
+  for (const t of PERSISTED_TABLES) rows[t] = await selectRows(db, t, ORDER_BY[t] ?? 'id');
   rows.sequences = await selectRows(db, 'sequences', 'name');
   const exts = {
     users: extsOf(rows.users), customers: extsOf(rows.customers), categories: extsOf(rows.menu_categories),

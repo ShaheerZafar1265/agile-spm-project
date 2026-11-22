@@ -12,8 +12,8 @@ import { getPool, ensureSchema } from './db.js';
 import { snapshot, restore } from './snapshot.js';
 import { saveStore, loadStore } from './relational/index.js';
 
-/** Arbitrary constant shared by every instance for pg_advisory_xact_lock. */
-const LOCK_KEY = 727274;
+/** Arbitrary constant shared by every instance (and scripts/superadmin.js) for pg_advisory_xact_lock. */
+export const LOCK_KEY = 727274;
 
 let loadedVersion = null;
 let queue = Promise.resolve();
@@ -110,6 +110,7 @@ async function handle(res, next) {
           res.statusCode = 500;
           res.removeHeader('Content-Length');
           res.removeHeader('ETag');
+          res.removeHeader('Set-Cookie');
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
           originalEnd.call(res, JSON.stringify({ error: 'Could not save changes. Please try again.' }));
         })

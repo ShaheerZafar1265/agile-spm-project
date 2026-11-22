@@ -281,3 +281,15 @@ test('DELETE /menu/items/:id returns 404 for unknown item and 403 for unauthoriz
   assert.equal(forbiddenWaiter.status, 403);
   assert.equal(forbiddenChef.status, 403);
 });
+
+test('the super admin sees every recipe, like an admin', async () => {
+  // Arrange
+  const superadmin = await api.login('sabihuddin106@gmail.com', 'Admin@123456');
+
+  // Act
+  const { items } = (await api.call('GET', '/menu/items', { token: superadmin })).body;
+
+  // Assert
+  assert.ok(items.length > 0 && items.every((i) => Array.isArray(i.recipe)), 'every item carries its recipe');
+});
+});

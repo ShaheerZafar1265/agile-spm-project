@@ -30,11 +30,13 @@ If a phase grows too big, it is split, never stretched. Update this file wheneve
 | 6c | Placeholders on every input | 16 | [x] |
 | 7a | Hardening and browser checks | 16 | [~] |
 | 7b | Branch and worktree clean-up (needs team OK) | 16 | [ ] |
-| 8 | Open product questions | 16 | [ ] |
+| 8 | Open product questions | 16 | [x] |
 | 9 | Phone numbers: digits only, one +92 format | 16 | [x] |
 | 10a | Harmic-style responsive sizes, site-wide | 16 | [x] |
 | 10b | Responsive sweep: storefront, admin ops, admin people | 16 | [x] |
-| 11 | Customer Reviews & Dining Feedback: verified ratings, CSAT, moderation | 17 | [x] |
+| 11 | Security Hardening, Superusers & User Management Separation | 16 | [x] |
+| 12 | Super admin bound to one email, CI repair | 17 | [~] |
+| 13 | Customer Reviews & Dining Feedback: verified ratings, CSAT, moderation | 17 | [x] |
 
 ---
 
@@ -152,9 +154,9 @@ If a phase grows too big, it is split, never stretched. Update this file wheneve
 
 - [ ] Remove merged branches and old worktrees (after the team agrees)
 
-## Phase 8: Open product questions [ ]
+## Phase 8: Open product questions [x]
 
-- [ ] Should a single super-admin manage the other admins?
+- [x] Should a single super-admin manage the other admins? Yes: one super admin, bound to `sabihuddin106@gmail.com` (Phase 12).
 
 ---
 
@@ -196,14 +198,17 @@ Each branch was merged one at a time, gated, and released to `main` before the n
 
 **Still to do by hand:** browser check on a phone (360px) of the storefront and staff screens.
 
-## Phase 11: Customer Reviews & Dining Feedback [x]
+## Phase 11: Security Hardening, Superusers & User Management [x]
 
-**Goal:** verified customers can review served dining experiences; managers monitor customer satisfaction (CSAT) and moderate reviews.
+**Goal:** Remove demo quick logins, separate customer accounts in user management with dedicated sections and category switching, integrate hardened cookie-based sessions, provision platform superusers, and resolve test runtime compatibility.
 
-- [x] Reviews REST API (`server/src/routes/reviews.js`) with public feed, star summary, customer self-service (`/mine`), order verification, manager moderation, and notifications.
-- [x] In-memory store and snapshot round-tripping (`server/src/data/store.js`, `server/src/data/snapshot.js`).
-- [x] OpenAPI 3.0.3 specification and catalogue synchronization.
-- [x] Test suite: 9 acceptance tests with Arrange-Act-Assert (`server/test/routes/reviews.test.js`); full server suite passes at 421 tests.
+- [x] Remove quick demo login from sign-in form (`frontend/src/components/auth/login-form.tsx`)
+- [x] Separate Customer accounts from Staff accounts in user management with dedicated headers, counts, and category switch filters (`frontend/src/components/staff/account-table.tsx`)
+- [x] Provision platform superusers (`sabihuddin106@gmail.com` and `shahanarain33@gmail.com`) with admin privileges and secure password (`Admin@123456`) across in-memory and PostgreSQL seed stores
+- [x] Fix Health Probe integration to extract JWT from hardened `HttpOnly` session cookie (`server/src/lib/health-probe.js`)
+- [x] Align `jsdom` testing dependency (`^25.0.1`) for Node 20 runtime compatibility
+- [x] Integrate and reconcile junior developer branches (`feat/tables-validation`, `feat/auth-hardening`) into `development` and `main`
+- [x] Full 6-gate CI verification passed: 101 server lint files OK, 405 server acceptance tests passing, 96 frontend test files (962 tests) passing, clean TypeScript check, and production build succeeded
 
 ## Rules of the road
 
@@ -211,3 +216,39 @@ Each branch was merged one at a time, gated, and released to `main` before the n
 - A phase is done only when all six CI checks pass. A test that times out under load is re-run once on its own before it counts as a real failure.
 - Tests stay module-wise with `// Arrange // Act // Assert` comments (see `TestsPLAN.md`).
 - Every delivered feature is also added to the sprint docs.
+
+## Phase 12: Super admin bound to one email, CI repair [~]
+
+**Goal:** answer Phase 8 with one super admin above every admin, bound to `sabihuddin106@gmail.com`, and get CI green again. Spec `docs/specs/2026-11-15-superadmin-design.md`, plan `docs/plans/2026-11-15-superadmin.md`.
+
+- [x] `superadmin` role (rank 4):
+  - it holds every admin permission through `hasRole` and is the only role that manages admins
+  - nobody manages it (`server/src/lib/hierarchy.js`, `frontend/src/lib/permissions.ts`)
+- [x] Bound to one account:
+  - the API never assigns the role, and the super admin cannot change its email (`server/src/routes/auth.js`)
+  - Postgres allows one (`uq_users_one_superadmin`, `server/schema/004_superadmin_role.sql`, `005_one_superadmin.sql`)
+- [x] Workforce follows the rank: admins see and change attendance and pay up to admin, the super admin everyone's
+- [x] `pnpm --dir server superadmin` binds it on a database under the persistence lock. Neon needs `--yes-really`.
+  - Every bind takes a freshly typed password (twice, input hidden) and signs out the account's sessions.
+  - The script and `db:init` accept the `--` that `pnpm run` forwards.
+- [x] Code-review fixes (independent review):
+  - closed the pre-registered-email takeover
+  - the super admin's own row shows its badge
+  - the bound email is read-only on My account
+  - the API catalogue is updated
+  - DB tests refuse Neon
+  - the super admin's handler tests live in their module files
+- [x] Sprint 17 on the Scrum board: US17.1, US17.2
+- [x] CI repair (user approved). CI had been red on `development` and `main` since 99a1237:
+  - the seed test now counts the seed's own users
+  - the in-memory alternate password (`altPasswordHashes`) is removed, because it never reached Postgres
+- [ ] PR into `development`, release to `main`, deploy the API then the web app, bind on Neon
+
+## Phase 13: Customer Reviews & Dining Feedback [x]
+
+**Goal:** verified customers can review served dining experiences; managers monitor customer satisfaction (CSAT) and moderate reviews.
+
+- [x] Reviews REST API (`server/src/routes/reviews.js`) with public feed, star summary, customer self-service (`/mine`), order verification, manager moderation, and notifications.
+- [x] In-memory store and snapshot round-tripping (`server/src/data/store.js`, `server/src/data/snapshot.js`).
+- [x] OpenAPI 3.0.3 specification and catalogue synchronization.
+- [x] Test suite: 9 acceptance tests with Arrange-Act-Assert (`server/test/routes/reviews.test.js`); full server suite passes at 421 tests.
