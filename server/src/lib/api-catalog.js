@@ -247,9 +247,9 @@ export const ROUTE_DOCS = {
     errors: ['400 empty name', '404 customer not found'],
   },
   'DELETE /api/customers/:id': {
-    summary: 'Delete a customer record that has no order history (management only).',
+    summary: 'Delete a customer record that has no order history or active reservations (management only).',
     response: DELETED('cus_8'),
-    errors: ['404 customer not found', "409 customer has order history and can't be deleted"],
+    errors: ['404 customer not found', "409 customer has order history or active reservations and can't be deleted"],
   },
 
   /* ---- menu */
