@@ -292,4 +292,4 @@ test('the super admin sees every recipe, like an admin', async () => {
   // Assert
   assert.ok(items.length > 0 && items.every((i) => Array.isArray(i.recipe)), 'every item carries its recipe');
 });
-});
+
