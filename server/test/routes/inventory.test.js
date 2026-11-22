@@ -273,4 +273,3 @@ test('the super admin edits ingredient details, like an admin', async () => {
   assert.equal(details.status, 200);
   assert.equal(asChef.status, 403);
 });
-});
