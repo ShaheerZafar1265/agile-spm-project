@@ -141,3 +141,4 @@ The proposal planned 10 modules in 10 weekly sprints, ordered by dependency: aut
 | **Shah Anas Khan** | 23K-3028 | Docs & Planning | Sprint 11 (Quality, Security & Operations) | Documentation, sprint planning records |
 | **Kahlil Ahmed** | K232007 | Testing & Research | Bolt 006 (Testing, Mock Isolation, User Research) | Manual/UI testing, user research |
 | **Muhammad Zain Abbas** | 22K5028 | Review & Reporting | Bolt 009 (Sprint reviews, lockfile audit, status reporting) | Sprint reviews, status reporting |
+
