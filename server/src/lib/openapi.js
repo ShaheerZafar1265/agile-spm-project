@@ -16,6 +16,7 @@ const MODULE_DESCRIPTIONS = {
   analytics: 'Revenue analytics, sales trends, and operational summaries',
   notifications: 'Role-based and user-specific notification feeds',
   settings: 'Restaurant configurations, tax rates, operating hours, and policies',
+  reviews: 'Customer ratings, verified dining reviews, and manager response moderation',
 };
 
 /**
@@ -172,3 +173,4 @@ export function buildOpenApi(app) {
     },
   };
 }
+

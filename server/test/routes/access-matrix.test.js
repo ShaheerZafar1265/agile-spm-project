@@ -131,6 +131,14 @@ const MATRIX = [
   ['GET', '/analytics/summary', MANAGEMENT],
   ['GET', '/analytics/dashboard', MANAGEMENT],
   ['PATCH', '/settings', MANAGEMENT, {}],
+
+  // Reviews & feedback
+  ['GET', '/reviews', null],
+  ['GET', '/reviews/summary', null],
+  ['GET', '/reviews/mine', ['customer']],
+  ['POST', '/reviews', ['customer'], {}],
+  ['PATCH', '/reviews/rev_nope', MANAGEMENT, {}],
+  ['DELETE', '/reviews/rev_nope', MANAGEMENT],
 ];
 
 let api;

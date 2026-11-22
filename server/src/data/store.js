@@ -428,6 +428,11 @@ export const attendance = [];
 /** Pay adjustments (bonuses, deductions): { id, userId, amount, reason, date, createdBy, createdAt }. */
 export const payAdjustments = [];
 
+/* --------------------------------------------------------------- reviews */
+
+export const reviewStatuses = ['published', 'hidden', 'flagged'];
+export const reviews = [];
+
 /* ---------------------------------------------------------- notifications */
 
 /**
@@ -553,6 +558,41 @@ function seedLiveState() {
   note({ userId: 'usr_waiter', type: 'item_ready', title: 'Ready for pickup', message: 'Table 4 · Garlic Bread is ready at the pass.', link: '/staff/orders', orderId: o1.id }, 6);
   note({ role: 'waiter', type: 'order_placed', title: 'New online order', message: `Order #${o2.number} from ${casey.name} is waiting for confirmation.`, link: '/staff/orders', orderId: o2.id }, 4);
   note({ userId: 'usr_waiter', type: 'order_ready', title: 'Order ready', message: `Order #${o4.number} (pickup) is ready to hand over.`, link: '/staff/orders', orderId: o4.id }, 2);
+
+  reviews.push(
+    {
+      id: nextId('rev'),
+      orderId: 'ord_1',
+      customerId: emma.id,
+      customerName: emma.name,
+      rating: 5,
+      foodRating: 5,
+      serviceRating: 5,
+      comment: 'Exceptional Margherita pizza and warm hospitality! The crust was perfect.',
+      menuItemIds: [menuItems[0]?.id],
+      tags: ['authentic', 'great service'],
+      status: 'published',
+      managerResponse: 'Thank you Emma! We look forward to welcoming you back soon.',
+      respondedAt: at(60),
+      createdAt: at(120),
+    },
+    {
+      id: nextId('rev'),
+      orderId: 'ord_2',
+      customerId: casey.id,
+      customerName: casey.name,
+      rating: 4,
+      foodRating: 5,
+      serviceRating: 4,
+      comment: 'Delicious pasta and cozy ambiance. Slightly busy during peak dinner hour.',
+      menuItemIds: [menuItems[1]?.id],
+      tags: ['delicious', 'cozy'],
+      status: 'published',
+      managerResponse: null,
+      respondedAt: null,
+      createdAt: at(240),
+    },
+  );
 }
 
 /** Round a Date to the nearest half-hour slot in the given direction. */

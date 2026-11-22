@@ -9,13 +9,13 @@ import {
   counters, settings, orderSeq,
   users, customers, inventory, stockMovements, purchaseOrders, categories,
   menuItems, tables, orders, reservations, applications, shifts, notifications,
-  attendance, payAdjustments,
+  attendance, payAdjustments, reviews,
 } from './store.js';
 
 const COLLECTIONS = {
   users, customers, inventory, stockMovements, purchaseOrders, categories,
   menuItems, tables, orders, reservations, applications, shifts, notifications,
-  attendance, payAdjustments,
+  attendance, payAdjustments, reviews,
 };
 const OBJECTS = { counters, settings, orderSeq };
 
