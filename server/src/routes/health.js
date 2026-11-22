@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { buildCatalog, MODULES } from '../lib/api-catalog.js';
 import { checkHealth } from '../lib/health-probe.js';
 import { renderHealthPage } from '../lib/health-page.js';
+import { buildOpenApi } from '../lib/openapi.js';
 
 /**
  * Health routes. Mounted in app.js BEFORE the persistence middleware: they
@@ -52,6 +53,13 @@ router.get('/endpoints', (req, res) => {
   const catalog = buildCatalog(req.app);
   noStore(res);
   res.json({ service: SERVICE, count: catalog.length, modules: MODULES, endpoints: catalog });
+});
+
+/** GET /api/health/openapi.json — OpenAPI 3.0.3 specification document. */
+router.get('/openapi.json', (req, res) => {
+  const spec = buildOpenApi(req.app);
+  noStore(res);
+  res.json(spec);
 });
 
 /** GET /api/health/check — run the live probes (GET only, no credentials). */

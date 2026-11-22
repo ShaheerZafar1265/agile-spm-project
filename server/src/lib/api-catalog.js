@@ -14,7 +14,7 @@
 
 export const MODULES = [
   'health', 'auth', 'customers', 'menu', 'orders', 'billing', 'tables',
-  'reservations', 'inventory', 'staff', 'attendance', 'workforce', 'analytics', 'notifications', 'settings',
+  'reservations', 'inventory', 'staff', 'attendance', 'workforce', 'analytics', 'notifications', 'settings', 'reviews',
 ];
 
 export const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -107,6 +107,17 @@ const CLOCK_ERRORS = ['409 invalid transition (already clocked in, not clocked i
 const DELETED = (id) => ok({ deleted: true, id });
 const MODIFIER_GROUPS = opt('array', 'Modifier groups: [{ name, type: single|multi, options: [{ label, priceDelta }] }]');
 const PREFERENCES = opt('object', '{ dietary: string[], allergies: string[] }');
+const REVIEW = {
+  id: 'rev_1', orderId: 'ord_1', customerId: 'cus_8', customerName: 'Alex Kim',
+  rating: 5, foodRating: 5, serviceRating: 5, comment: 'Delicious pizza and fast service!',
+  menuItemIds: ['mi_3'], menuItemNames: ['Margherita'], tags: ['delicious', 'fast'],
+  status: 'published', managerResponse: 'Thank you Alex!', respondedAt: '2026-10-09T10:00:00.000Z',
+  createdAt: '2026-10-08T20:30:00.000Z',
+};
+const REVIEW_SUMMARY = {
+  totalReviews: 24, averageRating: 4.8, averageFoodRating: 4.9, averageServiceRating: 4.7,
+  recommendationRate: 96, distribution: { 1: 0, 2: 1, 3: 1, 4: 4, 5: 18 },
+};
 
 /* ------------------------------------------------------- endpoint notes */
 
@@ -126,6 +137,10 @@ export const ROUTE_DOCS = {
   'GET /api/health/endpoints': {
     summary: 'Machine-readable catalogue of every endpoint (this page as JSON).',
     response: ok({ service: 'restaurant-ops-api', count: 84, modules: ['auth', '...'], endpoints: [{ method: 'GET', path: '/api/menu', module: 'menu', auth: 'optional', roles: [], probe: { enabled: true } }] }),
+  },
+  'GET /api/health/openapi.json': {
+    summary: 'OpenAPI 3.0.3 specification document describing every endpoint, parameter and schema.',
+    response: ok({ openapi: '3.0.3', info: { title: 'Restaurant Operations & Ordering Platform API', version: '1.0.0' } }),
   },
   'GET /api/health/check': {
     summary: 'Runs the live probes: every safe GET is called without credentials; results are cached for a few seconds.',
@@ -251,9 +266,9 @@ export const ROUTE_DOCS = {
     errors: ['400 empty name', '404 customer not found'],
   },
   'DELETE /api/customers/:id': {
-    summary: 'Delete a customer record that has no order history (management only).',
+    summary: 'Delete a customer record that has no order history or active reservations (management only).',
     response: DELETED('cus_8'),
-    errors: ['404 customer not found', "409 customer has order history and can't be deleted"],
+    errors: ['404 customer not found', "409 customer has order history or active reservations and can't be deleted"],
   },
 
   /* ---- menu */
@@ -291,8 +306,9 @@ export const ROUTE_DOCS = {
     response: ok({ item: { ...MENU_ITEM, recipe: [{ inventoryId: 'inv_5', qty: 0.2, name: 'Mozzarella', unit: 'kg' }] } }),
   },
   'DELETE /api/menu/items/:id': {
-    summary: 'Delete a menu item.',
+    summary: 'Delete a menu item that has no active orders.',
     response: DELETED('mi_3'),
+    errors: ['404 menu item not found', '409 cannot delete a menu item with active orders'],
   },
   'GET /api/menu/categories': {
     summary: 'All categories in display order with item counts.',
@@ -544,6 +560,11 @@ export const ROUTE_DOCS = {
     response: ok({ purchaseOrder: { ...PURCHASE_ORDER, status: 'received', receivedAt: '2026-10-09T08:00:00.000Z' } }),
     errors: ['409 already received'],
   },
+  'POST /api/inventory/purchase-orders/:id/cancel': {
+    summary: 'Cancel a pending purchase order.',
+    response: ok({ purchaseOrder: { ...PURCHASE_ORDER, status: 'cancelled' } }),
+    errors: ['409 already received or cancelled'],
+  },
 
   /* ---- staff */
   'GET /api/staff/roster': {
@@ -719,6 +740,59 @@ export const ROUTE_DOCS = {
       autoBreakMinutes: opt('number', '0-120'), autoBreakAfterHours: opt('number', '1-12'),
     },
     response: ok({ settings: SETTINGS }),
+  },
+
+  /* ---- reviews */
+  'GET /api/reviews': {
+    summary: 'Public list of verified customer reviews with rating and dish filters.',
+    query: {
+      menuItemId: opt('string', 'Filter by dish'),
+      rating: opt('integer', 'Filter by exact star rating 1-5'),
+      minRating: opt('number', 'Filter by minimum star rating'),
+      sort: opt('string', 'newest|highest|lowest'),
+      scope: opt('string', 'Staff pass scope=all to see hidden/flagged reviews'),
+    },
+    response: ok({ reviews: [REVIEW] }),
+  },
+  'GET /api/reviews/summary': {
+    summary: 'Aggregate rating scores, star distribution, and recommendation rates.',
+    response: ok({ summary: REVIEW_SUMMARY }),
+  },
+  'GET /api/reviews/mine': {
+    summary: 'List all reviews submitted by the signed-in customer.',
+    auth: 'required',
+    roles: ['customer'],
+    response: ok({ reviews: [REVIEW] }),
+  },
+  'POST /api/reviews': {
+    summary: 'Submit a verified review for a served or paid order (customers only).',
+    auth: 'required',
+    roles: ['customer'],
+    body: {
+      orderId: req('string', 'Completed order ID'),
+      rating: req('integer', '1 to 5 stars'),
+      foodRating: opt('integer', '1 to 5 stars'),
+      serviceRating: opt('integer', '1 to 5 stars'),
+      comment: opt('string', 'Review feedback, max 1000 characters'),
+      menuItemIds: opt('array', 'List of menu item IDs from this order'),
+      tags: opt('array', 'Short descriptive tags'),
+    },
+    response: ok({ review: REVIEW }, 201),
+    errors: ['400 invalid rating or unfulfilled order', '403 not your order', '404 order not found', '409 already reviewed this order'],
+  },
+  'PATCH /api/reviews/:id': {
+    summary: 'Manager responds to a review or updates moderation status (management only).',
+    body: {
+      status: opt('string', 'published|hidden|flagged'),
+      managerResponse: opt('string', 'Official restaurant reply, max 500 characters'),
+    },
+    response: ok({ review: { ...REVIEW, managerResponse: 'Thank you for dining with us!' } }),
+    errors: ['404 review not found'],
+  },
+  'DELETE /api/reviews/:id': {
+    summary: 'Remove an inappropriate or spam review (management only).',
+    response: DELETED('rev_1'),
+    errors: ['404 review not found'],
   },
 };
 

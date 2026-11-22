@@ -17,6 +17,7 @@ import staffRoutes from './routes/staff.js';
 import attendanceRoutes from './routes/attendance.js';
 import workforceRoutes from './routes/workforce.js';
 import healthRoutes from './routes/health.js';
+import reviewRoutes from './routes/reviews.js';
 import { PROBE_HEADER } from './lib/health-probe.js';
 import { authenticate, optionalAuth } from './middleware/auth.js';
 import { rateLimit, limitPost } from './middleware/rate-limit.js';
@@ -99,6 +100,7 @@ export function createApp({
     : (req, res, next) => next();
   app.use('/api/reservations', optionalAuth, bookingLimit, reservationRoutes);
   app.use('/api/staff', optionalAuth, applicationLimit, staffRoutes);
+  app.use('/api/reviews', optionalAuth, reviewRoutes);
 
   app.use('/api/customers', authenticate, customerRoutes);
   app.use('/api/orders', authenticate, orderRoutes);

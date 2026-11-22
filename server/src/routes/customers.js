@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { customers, orders, userDirectory, findCustomerByUserId, nextId } from '../data/store.js';
+import { customers, orders, reservations, userDirectory, findCustomerByUserId, nextId } from '../data/store.js';
 import { requireRole } from '../middleware/auth.js';
 import { passwordMatches } from '../lib/passwords.js';
 import { localDate } from '../lib/time.js';
@@ -219,13 +219,16 @@ router.patch('/:id', staffOnly, (req, res) => {
   return res.json({ customer: serialize(customer) });
 });
 
-/** DELETE /api/customers/:id — remove a customer record (past orders are kept). */
+/** DELETE /api/customers/:id — remove a customer record (past orders and active reservations are protected). */
 router.delete('/:id', managerOnly, (req, res) => {
   const idx = customers.findIndex((c) => c.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Customer not found.' });
   // Orders keep their customer link, so a customer with history stays on the ledger.
   if (orders.some((o) => o.customerId === customers[idx].id)) {
     return res.status(409).json({ error: "This customer has order history and can't be deleted." });
+  }
+  if (reservations.some((r) => r.customerId === customers[idx].id && ['requested', 'confirmed'].includes(r.status))) {
+    return res.status(409).json({ error: "This customer has active reservations and can't be deleted." });
   }
   const [removed] = customers.splice(idx, 1);
   return res.json({ deleted: true, id: removed.id });

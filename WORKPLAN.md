@@ -36,6 +36,7 @@ If a phase grows too big, it is split, never stretched. Update this file wheneve
 | 10b | Responsive sweep: storefront, admin ops, admin people | 16 | [x] |
 | 11 | Security Hardening, Superusers & User Management Separation | 16 | [x] |
 | 12 | Super admin bound to one email, CI repair | 17 | [~] |
+| 13 | Customer Reviews & Dining Feedback: verified ratings, CSAT, moderation | 17 | [x] |
 
 ---
 
@@ -144,6 +145,10 @@ If a phase grows too big, it is split, never stretched. Update this file wheneve
 - [x] Menu domain hardening: preserve sort 0 on category creation
 - [x] Auth domain hardening: clear table waiter assignment when staff account is removed
 - [x] Workforce domain hardening: 404 boundary test for adjustment deletion on unknown staff
+- [x] Inventory domain hardening: prevent deletion of ingredients on pending purchase orders and add cancellation
+- [x] Customers domain hardening: protect customer records from deletion while active reservations exist
+- [x] Menu domain hardening: prevent deletion of menu items with active kitchen orders
+- [x] API documentation: OpenAPI 3.0.3 specification generator and discovery endpoint (/api/health/openapi.json)
 
 ## Phase 7b: Clean-up [ ]
 
@@ -239,3 +244,11 @@ Each branch was merged one at a time, gated, and released to `main` before the n
   - the in-memory alternate password (`altPasswordHashes`) is removed, because it never reached Postgres
 - [ ] PR into `development`, release to `main`, deploy the API then the web app, bind on Neon
 
+## Phase 13: Customer Reviews & Dining Feedback [x]
+
+**Goal:** verified customers can review served dining experiences; managers monitor customer satisfaction (CSAT) and moderate reviews.
+
+- [x] Reviews REST API (`server/src/routes/reviews.js`) with public feed, star summary, customer self-service (`/mine`), order verification, manager moderation, and notifications.
+- [x] In-memory store and snapshot round-tripping (`server/src/data/store.js`, `server/src/data/snapshot.js`).
+- [x] OpenAPI 3.0.3 specification and catalogue synchronization.
+- [x] Test suite: 9 acceptance tests with Arrange-Act-Assert (`server/test/routes/reviews.test.js`); full server suite passes at 421 tests.

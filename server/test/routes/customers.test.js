@@ -134,6 +134,48 @@ test('DELETE /customers/:id refuses a customer with order history, keeping their
   assert.equal((await api.call('GET', `/customers/${emma.id}`, { token: manager })).status, 200);
 });
 
+test('DELETE /customers/:id refuses a customer with active reservations, keeping the booking linked', async () => {
+  // Arrange — create a registered customer account who books a table
+  const manager = await api.login('manager');
+  const reg = await api.call('POST', '/auth/register', {
+    body: { name: 'Booking Guest', email: 'booking.guest@example.com', password: 'Secret-pass1', phone: '+92 300 5550199' },
+  });
+  assert.equal(reg.status, 201);
+  const custRes = await api.call('GET', '/customers/me', { token: reg.body.token });
+  const customerId = custRes.body.customer.id;
+
+  const booking = await api.call('POST', '/reservations', {
+    token: reg.body.token,
+    body: {
+      customerName: 'Booking Guest',
+      email: 'booking.guest@example.com',
+      partySize: 4,
+      date: '2026-12-25',
+      time: '19:00',
+    },
+  });
+  assert.equal(booking.status, 201);
+  const bookingId = booking.body.reservation.id;
+
+  // Act — manager attempts to delete the customer while reservation is active
+  const deleteActive = await api.call('DELETE', `/customers/${customerId}`, { token: manager });
+
+  // Assert
+  assert.equal(deleteActive.status, 409);
+  assert.match(deleteActive.body.error, /active reservations/i);
+
+  // Act — customer cancels the reservation
+  const cancelRes = await api.call('POST', `/reservations/${bookingId}/cancel`, { token: reg.body.token });
+  assert.equal(cancelRes.status, 200);
+
+  // Act — manager deletes the customer now that reservation is cancelled
+  const deleteAfterCancel = await api.call('DELETE', `/customers/${customerId}`, { token: manager });
+
+  // Assert
+  assert.equal(deleteAfterCancel.status, 200);
+  assert.deepEqual(deleteAfterCancel.body, { deleted: true, id: customerId });
+});
+
 test('customer records are type-checked, and null preferences no longer crash the request', async () => {
   // Arrange
   const token = await api.login('waiter');

@@ -178,6 +178,87 @@ test('a cleared supplier or category is stored empty, never as the text "null"',
   assert.equal(edited.body.item.category, 'Dry Goods', 'a cleared category keeps the current one');
 });
 
+test('DELETE /inventory/:id is refused with 409 while the ingredient has a pending purchase order', async () => {
+  // Arrange
+  const saffron = (await api.call('POST', '/inventory', {
+    token: manager,
+    body: { name: 'Spanish Saffron', category: 'Spices', unit: 'units', stock: 1, reorderLevel: 5, costPerUnit: 20 },
+  })).body.item;
+  const po = await api.call('POST', '/inventory/purchase-orders', {
+    token: manager,
+    body: { lines: [{ inventoryId: saffron.id, qty: 10 }] },
+  });
+  assert.equal(po.status, 201);
+
+  // Act — attempt delete while PO is pending (status: sent)
+  const deleteRes = await api.call('DELETE', `/inventory/${saffron.id}`, { token: manager });
+
+  // Assert
+  assert.equal(deleteRes.status, 409);
+  assert.match(deleteRes.body.error, /pending purchase order/i);
+
+  // Act — cancel the purchase order
+  const cancelRes = await api.call('POST', `/inventory/purchase-orders/${po.body.purchaseOrder.id}/cancel`, { token: manager });
+
+  // Assert
+  assert.equal(cancelRes.status, 200);
+  assert.equal(cancelRes.body.purchaseOrder.status, 'cancelled');
+
+  // Act — delete again now that PO is cancelled
+  const deleteAfterCancel = await api.call('DELETE', `/inventory/${saffron.id}`, { token: manager });
+
+  // Assert
+  assert.equal(deleteAfterCancel.status, 200);
+  assert.equal(deleteAfterCancel.body.deleted, true);
+});
+
+test('POST /inventory/purchase-orders/:id/cancel rejects already received or cancelled orders', async () => {
+  // Arrange
+  const pepper = (await api.call('POST', '/inventory', {
+    token: manager,
+    body: { name: 'Black Pepper', category: 'Spices', unit: 'kg', stock: 2, reorderLevel: 1, costPerUnit: 8 },
+  })).body.item;
+  const po = (await api.call('POST', '/inventory/purchase-orders', {
+    token: manager,
+    body: { lines: [{ inventoryId: pepper.id, qty: 5 }] },
+  })).body.purchaseOrder;
+
+  // Act — receive the goods
+  const receiveRes = await api.call('POST', `/inventory/purchase-orders/${po.id}/receive`, { token: manager });
+  // Assert
+  assert.equal(receiveRes.status, 200);
+
+  // Act — attempt to cancel a received order
+  const cancelReceived = await api.call('POST', `/inventory/purchase-orders/${po.id}/cancel`, { token: manager });
+  // Assert
+  assert.equal(cancelReceived.status, 409);
+  assert.match(cancelReceived.body.error, /already received/i);
+
+  // Act — attempt to receive a cancelled order on a new PO
+  const po2 = (await api.call('POST', '/inventory/purchase-orders', {
+    token: manager,
+    body: { lines: [{ inventoryId: pepper.id, qty: 2 }] },
+  })).body.purchaseOrder;
+  await api.call('POST', `/inventory/purchase-orders/${po2.id}/cancel`, { token: manager });
+  const receiveCancelled = await api.call('POST', `/inventory/purchase-orders/${po2.id}/receive`, { token: manager });
+
+  // Assert
+  assert.equal(receiveCancelled.status, 409);
+  assert.match(receiveCancelled.body.error, /cancelled purchase order/i);
+});
+
+test('DELETE /inventory/:id returns 404 for unknown ingredient and 403 for unauthorized staff', async () => {
+  // Arrange / Act
+  const notFound = await api.call('DELETE', '/inventory/inv_nonexistent_999', { token: manager });
+  const forbiddenChef = await api.call('DELETE', '/inventory/inv_1', { token: chef });
+  const forbiddenWaiter = await api.call('DELETE', '/inventory/inv_1', { token: waiter });
+
+  // Assert
+  assert.equal(notFound.status, 404);
+  assert.equal(forbiddenChef.status, 403);
+  assert.equal(forbiddenWaiter.status, 403);
+});
+
 test('the super admin edits ingredient details, like an admin', async () => {
   // Arrange
   const superadmin = await api.login('sabihuddin106@gmail.com', 'Admin@123456');
@@ -191,4 +272,5 @@ test('the super admin edits ingredient details, like an admin', async () => {
   // Assert
   assert.equal(details.status, 200);
   assert.equal(asChef.status, 403);
+});
 });
