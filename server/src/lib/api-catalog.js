@@ -287,8 +287,9 @@ export const ROUTE_DOCS = {
     response: ok({ item: { ...MENU_ITEM, recipe: [{ inventoryId: 'inv_5', qty: 0.2, name: 'Mozzarella', unit: 'kg' }] } }),
   },
   'DELETE /api/menu/items/:id': {
-    summary: 'Delete a menu item.',
+    summary: 'Delete a menu item that has no active orders.',
     response: DELETED('mi_3'),
+    errors: ['404 menu item not found', '409 cannot delete a menu item with active orders'],
   },
   'GET /api/menu/categories': {
     summary: 'All categories in display order with item counts.',

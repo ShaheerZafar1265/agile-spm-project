@@ -3,12 +3,14 @@ import {
   categories,
   menuItems,
   inventory,
+  orders,
   cuisineTagList,
   allergenList,
   nextId,
   STAFF_ROLES,
 } from '../data/store.js';
 import { requireRole } from '../middleware/auth.js';
+import { isActive } from '../lib/orders.js';
 import { text, number, bool, stringList, list } from '../lib/validate.js';
 
 const router = Router();
@@ -217,10 +219,14 @@ router.put('/items/:id/recipe', manageMenu, (req, res) => {
   return res.json({ item: serializeItem(item, true) });
 });
 
-/** DELETE /api/menu/items/:id — remove a menu item. */
+/** DELETE /api/menu/items/:id — remove a menu item that is not in any active order. */
 router.delete('/items/:id', manageMenu, (req, res) => {
   const idx = menuItems.findIndex((m) => m.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Menu item not found.' });
+  const hasActiveOrder = orders.some((o) => isActive(o) && o.items.some((i) => i.menuItemId === req.params.id));
+  if (hasActiveOrder) {
+    return res.status(409).json({ error: 'Cannot delete a menu item with active orders.' });
+  }
   const [removed] = menuItems.splice(idx, 1);
   return res.json({ deleted: true, id: removed.id });
 });

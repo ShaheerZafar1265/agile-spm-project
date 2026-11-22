@@ -228,3 +228,56 @@ test('a rejected menu item edit changes nothing, and id / recipe cannot be overw
   assert.equal(sneaky.body.item.id, fries.id);
   assert.equal(sneaky.body.item.createdAt, fries.createdAt);
 });
+
+test('DELETE /menu/items/:id is refused with 409 while the item is part of an active order', async () => {
+  // Arrange — create a temporary menu item and place an order containing it
+  const manager = await api.login('manager');
+  const waiter = await api.login('waiter');
+  const categoryId = (await api.call('GET', '/menu/categories')).body.categories[0].id;
+  const created = await api.call('POST', '/menu/items', {
+    token: manager,
+    body: { name: 'Active Special Dish', categoryId, price: 15 },
+  });
+  assert.equal(created.status, 201);
+  const itemId = created.body.item.id;
+
+  const orderRes = await api.call('POST', '/orders', {
+    token: waiter,
+    body: { type: 'dine-in', items: [{ menuItemId: itemId, qty: 1 }] },
+  });
+  assert.equal(orderRes.status, 201);
+  const orderId = orderRes.body.order.id;
+
+  // Act — manager attempts to delete the item while order is active
+  const deleteActive = await api.call('DELETE', `/menu/items/${itemId}`, { token: manager });
+
+  // Assert
+  assert.equal(deleteActive.status, 409);
+  assert.match(deleteActive.body.error, /active orders/i);
+
+  // Act — cancel the order
+  const cancelRes = await api.call('POST', `/orders/${orderId}/status`, { token: waiter, body: { status: 'cancelled' } });
+  assert.equal(cancelRes.status, 200);
+
+  // Act — delete the item now that no active order holds it
+  const deleteAfterCancel = await api.call('DELETE', `/menu/items/${itemId}`, { token: manager });
+
+  // Assert
+  assert.equal(deleteAfterCancel.status, 200);
+  assert.deepEqual(deleteAfterCancel.body, { deleted: true, id: itemId });
+});
+
+test('DELETE /menu/items/:id returns 404 for unknown item and 403 for unauthorized staff', async () => {
+  // Arrange
+  const [manager, waiter, chef] = await Promise.all([api.login('manager'), api.login('waiter'), api.login('chef')]);
+
+  // Act
+  const notFound = await api.call('DELETE', '/menu/items/mi_nonexistent_999', { token: manager });
+  const forbiddenWaiter = await api.call('DELETE', '/menu/items/mi_1', { token: waiter });
+  const forbiddenChef = await api.call('DELETE', '/menu/items/mi_1', { token: chef });
+
+  // Assert
+  assert.equal(notFound.status, 404);
+  assert.equal(forbiddenWaiter.status, 403);
+  assert.equal(forbiddenChef.status, 403);
+});
