@@ -9,7 +9,7 @@ type Reply = { question: string; answer: string; href?: string; linkLabel?: stri
 const FAQS: Array<Reply & { keys: string[] }> = [
   {
     question: 'How do I book a table?',
-    keys: ['book', 'booking', 'reserve', 'reservation', 'table'],
+    keys: ['book', 'booking', 'reserve', 'reservation'],
     answer: 'Use the booking page to choose a date, party size and an available time.',
     href: '/book',
     linkLabel: 'Book a table',
@@ -23,7 +23,7 @@ const FAQS: Array<Reply & { keys: string[] }> = [
   },
   {
     question: 'Where can I check allergens and dietary notes?',
-    keys: ['allerg', 'diet', 'vegan', 'vegetarian', 'gluten', 'ingredient'],
+    keys: ['allergy', 'allergies', 'allergen', 'allergens', 'diet', 'vegan', 'vegetarian', 'gluten', 'ingredient'],
     answer: 'Each dish on the menu lists its recorded allergens and dietary notes. If you have a serious allergy or need cross-contact information, please confirm with restaurant staff before ordering.',
     href: '/menu',
     linkLabel: 'Check the menu',
@@ -35,14 +35,15 @@ const FAQS: Array<Reply & { keys: string[] }> = [
   },
   {
     question: 'What are the opening hours?',
-    keys: ['hour', 'hours', 'open', 'close', 'opening', 'closing'],
+    keys: ['hour', 'hours', 'opening', 'closing', 'are you open', 'when do you open', 'what time do you open'],
     answer: 'We are open all week from 12:00 to 22:00.',
   },
 ];
 
 function getReply(question: string): Reply {
   const normalized = question.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  const match = FAQS.find((faq) => faq.keys.some((key) => normalized.includes(key)));
+  const searchable = ` ${normalized} `;
+  const match = FAQS.find((faq) => faq.keys.some((key) => searchable.includes(` ${key} `)));
   return match ?? {
     question,
     answer: 'I don’t have that answer yet. You can browse the menu or start a table booking from these pages.',
